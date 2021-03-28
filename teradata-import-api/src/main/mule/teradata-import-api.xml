@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+	<http:listener-config name="HTTP_Listener_config"
+		doc:name="HTTP Listener config"
+		doc:id="493d056c-9083-4655-a95d-4ab1dcdc7fc4">
+		<http:listener-connection host="0.0.0.0"
+			port="8081" />
+	</http:listener-config>
+	<db:config name="Teradata_Express" doc:name="Database Config"
+		doc:id="de4bd358-e91f-4bb0-870b-74f4d542c144">
+		<db:generic-connection
+			url="jdbc:teradata://192.168.2.104/USER=dbc,PASSWORD=dbc,TMODE=TERA"
+			driverClassName="com.teradata.jdbc.TeraDriver" user="dbc"
+			password="dbc" />
+	</db:config>
+	<configuration-properties
+		doc:name="Configuration properties"
+		doc:id="47bbb02a-180a-40b6-90bb-7411073ba51e"
+		file="configuration.yaml" />
+	<flow name="fast-import"
+		doc:id="23dc4ada-5795-4320-a066-645ece940bc9">
+		<http:listener doc:name="HTTP POST /fast-import"
+			doc:id="67e6f2a0-ad24-4688-b49d-8c2ad2623ec7"
+			config-ref="HTTP_Listener_config" path="/fast-import"
+			allowedMethods="POST" />
+		<set-variable
+			value="#[attributes.queryParams.'insert-mode']"
+			doc:name="insert-mode" doc:id="55d2367d-3b37-41e4-83e9-b912696afa8d"
+			variableName="insert-mode" />
+		<set-variable
+			value="#[attributes.queryParams.'import-operator']"
+			doc:name="import-operator"
+			doc:id="f1535d3e-a649-4a2f-94f3-aa471d3eab2e"
+			variableName="import-operator" />
+		<set-variable
+			value="#[attributes.queryParams.'segment-size']"
+			doc:name="segment-size" doc:id="d286d241-7b02-4626-8937-25c42a260851"
+			variableName="segment-size" />
+		<set-variable
+			value="#[attributes.queryParams.'number-of-elements']"
+			doc:name="number-of-elements"
+			doc:id="9f27a234-13af-4fdd-be94-e58df11031d3"
+			variableName="number-of-elements" />
+		<set-variable
+			value="#[attributes.queryParams.'include-nulls' as Boolean default false]"
+			doc:name="include-nulls"
+			doc:id="fd1c6041-9aae-479f-9a93-18129d92e83a"
+			variableName="include-nulls" />
+		<set-variable value='#[uuid() replace /-/ with("")]'
+			doc:name="transaction_id"
+			doc:id="8c79f1ec-f599-401e-b433-b9d83f6e5915"
+			variableName="transaction_id" />
+		<ee:transform doc:name="Create payload from variables"
+			doc:id="ad17e3fc-d46c-4139-b48b-931cb3a7d91f">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import * from dw::core::Arrays
+output application/json
+skipNullOn="everywhere"
+---
+using (sampleData = [1 to vars.'number-of-elements'] map {
+	id: $ map {
+		item_id: $,
+		item_desc: if ((vars.'include-nulls' == true) and (($ mod vars.'segment-size') == 0)) null else "Item with the id " ++ $
+	}
+})
+flatten (sampleData.id)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<ee:transform doc:name="Divide the payload"
+			doc:id="1107e369-1ec9-4372-935b-5dea0195c0f9">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import * from dw::core::Arrays
+output application/java
+---
+payload divideBy vars.'segment-size']]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<choice doc:name="Choice"
+			doc:id="b72ac732-2de1-426a-9769-d7056fb3fc69">
+			<when
+				expression="#[vars.'import-operator' == &quot;multi-statement&quot;]">
+				<choice doc:name="Choice"
+					doc:id="d05e624c-7716-4206-ab2e-9b184734d0ef">
+					<when
+						expression="#[vars.'insert-mode' == &quot;sequential&quot;]">
+						<foreach doc:name="For Each"
+							doc:id="5f662bfb-a9d6-4dbb-af35-6f4ddd9d2f69">
+							<ee:transform doc:name="Generate SQL request"
+								doc:id="97b5e834-56b3-4167-8533-e44aafede32e">
+								<ee:message>
+								</ee:message>
+								<ee:variables>
+									<ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
+import * from myModules::teradata
+output text/plain
+---
+createMultiStatementRequestFromArray(payload, "${db.targetDatabase}", "${db.targetTable}", vars.transaction_id)]]></ee:set-variable>
+								</ee:variables>
+							</ee:transform>
+							<logger level="DEBUG" doc:name="Log SQL request"
+								doc:id="dd7d1736-adb1-4eaa-8d0e-20dc317637ef"
+								message='#["The query is: " ++ vars.dbsql]' />
+							<db:insert doc:name="Insert"
+								doc:id="aedfde37-d1df-4c70-9a0a-ae9d6748c638"
+								config-ref="Teradata_Express" target="InsertStatementResult">
+								<db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
+							</db:insert>
+						</foreach>
+					</when>
+					<when
+						expression="#[vars.'insert-mode' == &quot;parallel&quot;]">
+						<parallel-foreach doc:name="Parallel For Each"
+							doc:id="bfe22897-39d4-49d7-9150-e128f55d68fa">
+							<ee:transform doc:name="Generate SQL request"
+								doc:id="757e9d82-f9f9-40c9-92be-4c890bc98d93">
+								<ee:message>
+								</ee:message>
+								<ee:variables>
+									<ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
+import * from myModules::teradata
+output text/plain
+---
+createMultiStatementRequestFromArray(payload, "${db.targetDatabase}", "${db.targetTable}", vars.transaction_id)]]></ee:set-variable>
+								</ee:variables>
+							</ee:transform>
+							<logger level="DEBUG" doc:name="Log SQL request"
+								doc:id="3aaf5d01-ea3a-4612-a87f-aed9728fe21a"
+								message='#["The query is: " ++ vars.dbsql]' />
+							<db:insert doc:name="Insert"
+								doc:id="71e0028a-0f29-40c1-8864-fd558be8bfdd"
+								config-ref="Teradata_Express" target="InsertStatementResult">
+								<db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
+							</db:insert>
+						</parallel-foreach>
+					</when>
+					<otherwise>
+						<logger level="INFO" doc:name="Option not implemented yet"
+							doc:id="0eaabaa4-5f5f-4c70-99fc-561ee0b5e66d"
+							message="Option not implemented yet." />
+					</otherwise>
+				</choice>
+			</when>
+			<when
+				expression="#[vars.'import-operator' == &quot;prepared-statement&quot;]">
+				<ee:transform doc:name="Generate SQL request"
+					doc:id="0ecc8277-54ad-4b94-8724-7a466b4e4557">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
+import * from myModules::teradata
+output text/plain
+---
+getParameterizedSQLStatementFromColumnList(["item_id", "item_desc"], "${db.targetDatabase}", "${db.targetTable}", vars.transaction_id)
+]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<logger level="DEBUG" doc:name="Log SQL request"
+					doc:id="e3dac996-0d3a-48e0-a366-5e776f61b575"
+					message='#["The query is: " ++ vars.dbsql]' />
+				<choice doc:name="Choice"
+					doc:id="373dfabb-f37c-48ac-a308-3da06e845aca">
+					<when
+						expression="#[vars.'insert-mode' == &quot;sequential&quot;]">
+						<foreach doc:name="For Each"
+							doc:id="c2957ac4-9bac-4a93-90f7-426111cdac07">
+							<db:bulk-insert doc:name="Bulk insert"
+								doc:id="ea9c6cf9-da8b-4bda-9ad3-6f42ac6843ea"
+								config-ref="Teradata_Express">
+								<db:bulk-input-parameters ><![CDATA[#[payload map {
+	"item_id": $.item_id,
+	"item_desc": $.item_desc
+}]]]></db:bulk-input-parameters>
+								<db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
+							</db:bulk-insert>
+						</foreach>
+					</when>
+					<when
+						expression="#[vars.'insert-mode' == &quot;parallel&quot;]">
+						<parallel-foreach doc:name="Parallel For Each"
+							doc:id="7deb3bb9-8b7b-4824-be12-256350272777">
+							<db:bulk-insert doc:name="Bulk insert"
+								doc:id="7b4c5c26-ea90-4bac-a1d5-3b526440ff76"
+								config-ref="Teradata_Express">
+								<db:bulk-input-parameters ><![CDATA[#[payload map {
+	"item_id": $.item_id,
+	"item_desc": $.item_desc
+}]]]></db:bulk-input-parameters>
+								<db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
+							</db:bulk-insert>
+						</parallel-foreach>
+					</when>
+					<otherwise >
+						<logger level="INFO" doc:name="Option not implemented yet" doc:id="feee8c1f-9678-452e-bf43-d87ff866c533" message="Option not implemented yet."/>
+					</otherwise>
+				
+</choice>
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="Option not implemented yet"
+					doc:id="7efc9fdc-7006-4260-b5ff-9c36c876bdfd"
+					message="Option not implemented yet." />
+			</otherwise>
+		</choice>
+		<db:select doc:name="Inserted data by transaction id"
+			doc:id="798e8b42-c3ea-49d2-ac4f-b516685eb0c6"
+			config-ref="Teradata_Express">
+			<db:sql><![CDATA[SELECT item_id, item_desc FROM MULE.FAST_IMPORT WHERE transaction_id = :transaction_id ORDER BY item_id]]></db:sql>
+			<db:input-parameters><![CDATA[#[{"transaction_id": vars.transaction_id}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Payload to JSON"
+			doc:id="17db017d-74f6-4e09-a8eb-5df12e61785e">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="teradata-import-apiFlow"
+		doc:id="c96080fb-d644-4cda-9c2e-7c15a11c4ea3">
+		<http:listener doc:name="HTTP DELETE /fast-import"
+			doc:id="15a8d54b-bc29-4704-adfc-1887ca9477e1"
+			config-ref="HTTP_Listener_config" path="/fast-import"
+			allowedMethods="DELETE" />
+		<db:delete doc:name="Empty the target table"
+			doc:id="a476da28-6db2-43c2-9f3f-b604aba3fbba"
+			config-ref="Teradata_Express">
+			<db:sql><![CDATA[DELETE FROM MULE.FAST_IMPORT]]></db:sql>
+		</db:delete>
+		<set-payload value="#[null]" doc:name="NullPayload"
+			doc:id="a7f41b41-77da-4249-9343-95da3f4bf83d" />
+	</flow>
+</mule>

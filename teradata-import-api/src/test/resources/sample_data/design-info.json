@@ -1,0 +1,11 @@
+{
+  "sampleData": {
+    "1107e369-1ec9-4372-935b-5dea0195c0f9": {
+      "vars-segment-size": "sample_data/java.dwl",
+      "payload": "sample_data/java_1.dwl"
+    },
+    "7e3113c3-de99-4083-a3de-c499a9753184": {
+      "payload": "sample_data/java_3.dwl"
+    }
+  }
+}
