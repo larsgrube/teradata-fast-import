@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+<mule xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
 	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
 	xmlns:db="http://www.mulesoft.org/schema/mule/db"
 	xmlns="http://www.mulesoft.org/schema/mule/core"
@@ -9,7 +10,8 @@
 	xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
-http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/bti http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd">
 	<http:listener-config name="HTTP_Listener_config"
 		doc:name="HTTP Listener config"
 		doc:id="493d056c-9083-4655-a95d-4ab1dcdc7fc4">
@@ -19,9 +21,9 @@ http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/cu
 	<db:config name="Teradata_Express" doc:name="Database Config"
 		doc:id="de4bd358-e91f-4bb0-870b-74f4d542c144">
 		<db:generic-connection
-			url="jdbc:teradata://192.168.2.104/USER=dbc,PASSWORD=dbc,TMODE=TERA"
-			driverClassName="com.teradata.jdbc.TeraDriver" user="dbc"
-			password="dbc" />
+			url="jdbc:teradata://192.168.0.9/USER=dbc,PASSWORD=dbc,TMODE=TERA"
+			driverClassName="com.teradata.jdbc.TeraDriver" user="maxthemule"
+			password="teradatarocks" />
 	</db:config>
 	<configuration-properties
 		doc:name="Configuration properties"
@@ -179,7 +181,7 @@ getParameterizedSQLStatementFromColumnList(["item_id", "item_desc"], "${db.targe
 							<db:bulk-insert doc:name="Bulk insert"
 								doc:id="ea9c6cf9-da8b-4bda-9ad3-6f42ac6843ea"
 								config-ref="Teradata_Express">
-								<db:bulk-input-parameters ><![CDATA[#[payload map {
+								<db:bulk-input-parameters><![CDATA[#[payload map {
 	"item_id": $.item_id,
 	"item_desc": $.item_desc
 }]]]></db:bulk-input-parameters>
@@ -194,7 +196,7 @@ getParameterizedSQLStatementFromColumnList(["item_id", "item_desc"], "${db.targe
 							<db:bulk-insert doc:name="Bulk insert"
 								doc:id="7b4c5c26-ea90-4bac-a1d5-3b526440ff76"
 								config-ref="Teradata_Express">
-								<db:bulk-input-parameters ><![CDATA[#[payload map {
+								<db:bulk-input-parameters><![CDATA[#[payload map {
 	"item_id": $.item_id,
 	"item_desc": $.item_desc
 }]]]></db:bulk-input-parameters>
@@ -202,11 +204,12 @@ getParameterizedSQLStatementFromColumnList(["item_id", "item_desc"], "${db.targe
 							</db:bulk-insert>
 						</parallel-foreach>
 					</when>
-					<otherwise >
-						<logger level="INFO" doc:name="Option not implemented yet" doc:id="feee8c1f-9678-452e-bf43-d87ff866c533" message="Option not implemented yet."/>
+					<otherwise>
+						<logger level="INFO" doc:name="Option not implemented yet"
+							doc:id="feee8c1f-9678-452e-bf43-d87ff866c533"
+							message="Option not implemented yet." />
 					</otherwise>
-				
-</choice>
+				</choice>
 			</when>
 			<otherwise>
 				<logger level="INFO" doc:name="Option not implemented yet"
@@ -230,12 +233,15 @@ payload]]></ee:set-payload>
 			</ee:message>
 		</ee:transform>
 	</flow>
-	<flow name="teradata-import-apiFlow"
+	<flow name="delete-the-target-table"
 		doc:id="c96080fb-d644-4cda-9c2e-7c15a11c4ea3">
 		<http:listener doc:name="HTTP DELETE /fast-import"
 			doc:id="15a8d54b-bc29-4704-adfc-1887ca9477e1"
 			config-ref="HTTP_Listener_config" path="/fast-import"
-			allowedMethods="DELETE" />
+			allowedMethods="DELETE">
+			<http:error-response
+				statusCode="#[vars.errorStatusCode]" />
+		</http:listener>
 		<db:delete doc:name="Empty the target table"
 			doc:id="a476da28-6db2-43c2-9f3f-b604aba3fbba"
 			config-ref="Teradata_Express">
@@ -243,5 +249,180 @@ payload]]></ee:set-payload>
 		</db:delete>
 		<set-payload value="#[null]" doc:name="NullPayload"
 			doc:id="a7f41b41-77da-4249-9343-95da3f4bf83d" />
+	</flow>
+	<error-handler name="teradata-db-error-handler"
+		doc:id="a9689141-217b-44b5-b044-5d344fdf5451">
+		<on-error-propagate enableNotifications="true"
+			logException="true" doc:name="On Error Propagate"
+			doc:id="05eadbcd-13ff-44db-8230-917a2bbcf78d"
+			when='#[error.errorType.asString == "DB:CONNECTIVITY"]'>
+			<set-variable value="503" variableName="errorStatusCode"
+				doc:name="Set Status Code to 503" />
+		</on-error-propagate>
+		<on-error-propagate enableNotifications="true"
+			logException="true" doc:name="On Error Propagate"
+			doc:id="bee4bc38-9dd2-430a-b39b-84b3ee581c57"
+			when='#[(error.errorType.asString == "DB:QUERY_EXECUTION") and (error.description contains "[Error 2631]")]'>
+			<set-variable value="503" variableName="errorStatusCode"
+				doc:name="Set Status Code to 503" />
+		</on-error-propagate>
+	</error-handler>
+	<flow name="transaction-a"
+		doc:id="0d398422-c30d-4835-a572-b53f4e5a9b1a">
+		<http:listener doc:name="HTTP POST /transaction-a"
+			doc:id="44ea0285-a58e-4ece-b327-4cef6e0c34e1"
+			config-ref="HTTP_Listener_config" path="/transaction-a"
+			allowedMethods="POST">
+			<http:error-response
+				statusCode="#[vars.errorStatusCode]" />
+		</http:listener>
+		<try doc:name="Try" doc:id="31b4f32c-7c09-426f-81e6-29e44baaf25f"
+			transactionalAction="ALWAYS_BEGIN">
+			<db:execute-ddl doc:name="Lock Table A"
+				doc:id="103ba437-df2c-4161-a97f-7a6fd9b8cf04"
+				config-ref="Teradata_Express">
+				<db:sql><![CDATA[LOCK MULE.TableA FOR WRITE;]]></db:sql>
+			</db:execute-ddl>
+			<logger level="INFO" doc:name="Wait for 3 seconds"
+				doc:id="eae1cf77-4dc4-43ef-b5e3-8aacd62fafd5"
+				message='#[%dw 2.0&#10;import * from dw::Runtime&#10;---&#10;"Waiting for 3 seconds" wait 3000]' />
+			<db:execute-ddl doc:name="Lock Table B"
+				doc:id="1017639d-c6b6-4216-8e61-d95cc6bd5132"
+				config-ref="Teradata_Express">
+				<db:sql><![CDATA[LOCK MULE.TableB FOR WRITE;]]></db:sql>
+			</db:execute-ddl>
+		</try>
+		<set-payload value="#[null]" doc:name="NullPayload"
+			doc:id="01d7bed3-2634-4647-a101-b295b75b2752" />
+		<error-handler ref="teradata-db-error-handler" />
+	</flow>
+	<flow name="transaction-b"
+		doc:id="9c8080c2-d410-4eb4-9521-e913f7ea0237">
+		<http:listener doc:name="HTTP POST /transaction-b"
+			doc:id="28abcda4-ae11-4340-99f5-4a7ba6bf19a1"
+			config-ref="HTTP_Listener_config" path="/transaction-b"
+			allowedMethods="POST">
+			<http:error-response
+				statusCode="#[vars.errorStatusCode]" />
+		</http:listener>
+		<try doc:name="Try" doc:id="7d3a552c-5f41-440a-89a2-dabf7512ec85"
+			transactionalAction="ALWAYS_BEGIN">
+			<db:execute-ddl doc:name="Lock Table B"
+				doc:id="57b3cb3b-6bb6-4c9e-9484-7ba3033a6647"
+				config-ref="Teradata_Express">
+				<db:sql><![CDATA[LOCK MULE.TableB FOR WRITE;]]></db:sql>
+			</db:execute-ddl>
+			<logger level="INFO" doc:name="Wait for 3 seconds"
+				doc:id="24c95569-86ec-4905-ac2c-c1fd25259e96"
+				message='#[%dw 2.0&#10;import * from dw::Runtime&#10;---&#10;"Waiting for 3 seconds" wait 3000]' />
+			<db:execute-ddl doc:name="Lock Table A"
+				doc:id="b7d1346e-a5cf-4fbe-8e65-23d0c367c3b6"
+				config-ref="Teradata_Express">
+				<db:sql><![CDATA[LOCK MULE.TableA FOR WRITE;]]></db:sql>
+			</db:execute-ddl>
+		</try>
+		<set-payload value="#[null]" doc:name="NullPayload"
+			doc:id="1bb7bb85-4c06-4ce6-9c54-fc91361fcf1e" />
+		<error-handler ref="teradata-db-error-handler" />
+	</flow>
+	<flow name="regular-import"
+		doc:id="514d6fb5-15fd-4595-94c2-44d86fc71805">
+		<http:listener doc:name="HTTP POST /regular-import"
+			doc:id="dd708d83-de42-4008-9b99-90fb10a43878"
+			config-ref="HTTP_Listener_config" path="/regular-import">
+			<http:error-response
+				statusCode="#[vars.errorStatusCode]" />
+		</http:listener>
+		<ee:transform doc:name="Transform Message" doc:id="1037c85f-0b97-4717-b402-f9848c195cc2" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="minOrderDate" ><![CDATA[%dw 2.0
+output application/java
+---
+(payload.orderDate orderBy $)[0]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<try doc:name="Try" doc:id="271dcc3e-61d3-4570-a8bb-22b758ba627c" transactionalAction="ALWAYS_BEGIN">
+			<db:bulk-update doc:name="Update fact table"
+				doc:id="b5b9188e-839c-441a-8e55-791503afde38"
+				config-ref="Teradata_Express" target="updateResult">
+				<db:sql><![CDATA[UPDATE MULE.FACT_ORDERS FROM
+(
+ SELECT 
+   :orderNo AS orderNo
+ , :orderDate AS orderDate
+ , :customerNo AS customerNo
+ , :itemNo AS itemNo
+ , :itemDesc AS itemDesc
+ , :orderState AS orderState
+ , :lastUpdatedTS AS lastUpdatedTS
+) SRC
+SET itemDesc = SRC.itemDesc
+  , orderState = SRC.orderState
+  , lastUpdatedTS = SRC.lastUpdatedTS
+WHERE MULE.FACT_ORDERS.orderNo = SRC.orderNo
+AND MULE.FACT_ORDERS.itemNo = SRC.itemNo
+AND MULE.FACT_ORDERS.lastUpdatedTS < SRC.lastUpdatedTS;]]></db:sql>
+			</db:bulk-update>
+			<db:bulk-insert doc:name="Insert into fact table"
+				doc:id="5999e95a-4416-48df-9661-88534b1f79b5"
+				config-ref="Teradata_Express">
+				<db:sql><![CDATA[INSERT INTO MULE.FACT_ORDERS (
+   orderNo
+ , orderDate
+ , customerNo
+ , itemNo
+ , itemDesc
+ , orderState
+ , lastUpdatedTS
+)
+SELECT
+   :orderNo
+ , :orderDate
+ , :customerNo
+ , :itemNo
+ , :itemDesc
+ , :orderState
+ , :lastUpdatedTS
+WHERE NOT EXISTS (SELECT 1 FROM MULE.FACT_ORDERS WHERE orderNo = :orderNo AND itemNo = :itemNo);]]></db:sql>
+			</db:bulk-insert>
+			<db:update doc:name="Merge into lookup table" doc:id="1fa62008-e3cb-41be-877c-6f8fc1ccca6b" config-ref="Teradata_Express">
+				<db:sql ><![CDATA[MERGE INTO MULE.LU_ITEMS AS TARGET_TAB
+USING
+(
+ SELECT
+   T.itemNo
+ , T.itemDesc
+ FROM
+ (
+  SELECT
+    itemNo
+  , itemDesc
+  FROM MULE.FACT_ORDERS
+  WHERE orderDate >= :minOrderDate
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY itemNo ORDER BY orderDate DESC) = 1
+ ) T
+ WHERE (T.itemNo, T.itemDesc) NOT IN (SELECT itemNo, itemDesc FROM MULE.LU_ITEMS)
+) AS SOURCE_TAB
+ON SOURCE_TAB.itemNo = TARGET_TAB.itemNo
+WHEN MATCHED THEN UPDATE
+SET itemDesc = SOURCE_TAB.itemDesc
+WHEN NOT MATCHED THEN INSERT
+(
+  itemNo
+, itemDesc
+)
+VALUES
+(
+  SOURCE_TAB.itemNo
+, SOURCE_TAB.itemDesc
+);]]></db:sql>
+				<db:input-parameters ><![CDATA[#[{'minOrderDate': vars.minOrderDate}]]]></db:input-parameters>
+			</db:update>
+		</try>
+		<set-payload value="#[null]" doc:name="NullPayload"
+			doc:id="f23aa4a2-db55-488a-909f-6f38af722a1b" />
+		<error-handler ref="teradata-db-error-handler" />
 	</flow>
 </mule>
