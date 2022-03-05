@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_49341764_a19e_48a7_856d_7589b08ead22_Output_Variables_updateResult = Array<Number>
+

@@ -1,3 +1,6 @@
 db:
   targetDatabase: "MULE"
   targetTable: "FAST_IMPORT"
+kafka:
+  bootstrapServer: localhost:9092
+  topic: quickstart-events

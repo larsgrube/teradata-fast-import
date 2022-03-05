@@ -1,79 +1,71 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:spring="http://www.mulesoft.org/schema/mule/spring"
-	xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
-	xmlns:http="http://www.mulesoft.org/schema/mule/http"
-	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
-	xmlns:db="http://www.mulesoft.org/schema/mule/db"
-	xmlns="http://www.mulesoft.org/schema/mule/core"
-	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+<mule xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+  xmlns:spring="http://www.mulesoft.org/schema/mule/spring" xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
+  xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+  xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core"
+  xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/ee/bti http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd
-http://www.mulesoft.org/schema/mule/spring http://www.mulesoft.org/schema/mule/spring/current/mule-spring.xsd">
-	<http:listener-config name="HTTP_Listener_config"
-		doc:name="HTTP Listener config"
-		doc:id="493d056c-9083-4655-a95d-4ab1dcdc7fc4">
-		<http:listener-connection host="0.0.0.0"
-			port="8081" />
-	</http:listener-config>
-	<db:config name="Teradata_Express" doc:name="Database Config"
-		doc:id="de4bd358-e91f-4bb0-870b-74f4d542c144">
-		<db:generic-connection
-			url="jdbc:teradata://192.168.0.9/USER=dbc,PASSWORD=dbc,TMODE=TERA"
-			driverClassName="com.teradata.jdbc.TeraDriver" user="maxthemule"
-			password="teradatarocks" />
-	</db:config>
-	<configuration-properties
-		doc:name="Configuration properties"
-		doc:id="47bbb02a-180a-40b6-90bb-7411073ba51e"
-		file="configuration.yaml" />
-	<spring:config name="Spring_Config" doc:name="Spring Config" doc:id="b3b41dbc-1217-4834-be11-cbc18f8013c2" files="config/spring-config.xml" />
-	<db:config name="Teradata_Express_DataSource"
-		doc:name="Database Config"
-		doc:id="b9af7037-b124-4d4d-974f-0c74a4d628ce">
-		<db:data-source-connection
-			dataSourceRef="TeradataDataSource" />
-	</db:config>
-	<flow name="fast-import"
-		doc:id="23dc4ada-5795-4320-a066-645ece940bc9">
-		<http:listener doc:name="HTTP POST /fast-import"
-			doc:id="67e6f2a0-ad24-4688-b49d-8c2ad2623ec7"
-			config-ref="HTTP_Listener_config" path="/fast-import"
-			allowedMethods="POST" />
-		<set-variable
-			value="#[attributes.queryParams.'insert-mode']"
-			doc:name="insert-mode" doc:id="55d2367d-3b37-41e4-83e9-b912696afa8d"
-			variableName="insert-mode" />
-		<set-variable
-			value="#[attributes.queryParams.'import-operator']"
-			doc:name="import-operator"
-			doc:id="f1535d3e-a649-4a2f-94f3-aa471d3eab2e"
-			variableName="import-operator" />
-		<set-variable
-			value="#[attributes.queryParams.'segment-size']"
-			doc:name="segment-size" doc:id="d286d241-7b02-4626-8937-25c42a260851"
-			variableName="segment-size" />
-		<set-variable
-			value="#[attributes.queryParams.'number-of-elements']"
-			doc:name="number-of-elements"
-			doc:id="9f27a234-13af-4fdd-be94-e58df11031d3"
-			variableName="number-of-elements" />
-		<set-variable
-			value="#[attributes.queryParams.'include-nulls' as Boolean default false]"
-			doc:name="include-nulls"
-			doc:id="fd1c6041-9aae-479f-9a93-18129d92e83a"
-			variableName="include-nulls" />
-		<set-variable value='#[uuid() replace /-/ with("")]'
-			doc:name="transaction_id"
-			doc:id="8c79f1ec-f599-401e-b433-b9d83f6e5915"
-			variableName="transaction_id" />
-		<ee:transform doc:name="Create payload from variables"
-			doc:id="ad17e3fc-d46c-4139-b48b-931cb3a7d91f">
-			<ee:message>
-				<ee:set-payload><![CDATA[%dw 2.0
+http://www.mulesoft.org/schema/mule/spring http://www.mulesoft.org/schema/mule/spring/current/mule-spring.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd">
+  <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config"
+    doc:id="493d056c-9083-4655-a95d-4ab1dcdc7fc4">
+    <http:listener-connection host="0.0.0.0" port="8081" />
+  </http:listener-config>
+  <db:config name="Teradata_Express" doc:name="Database Config" doc:id="de4bd358-e91f-4bb0-870b-74f4d542c144">
+    <db:generic-connection url="jdbc:teradata://192.168.0.10/USER=dbc,PASSWORD=dbc,TMODE=TERA"
+      driverClassName="com.teradata.jdbc.TeraDriver" user="maxthemule" password="teradatarocks" />
+  </db:config>
+  <configuration-properties doc:name="Configuration properties"
+    doc:id="47bbb02a-180a-40b6-90bb-7411073ba51e" file="configuration.yaml" />
+  <spring:config name="Spring_Config" doc:name="Spring Config"
+    doc:id="b3b41dbc-1217-4834-be11-cbc18f8013c2" files="config/spring-config.xml" />
+  <db:config name="Teradata_Express_DataSource" doc:name="Database Config"
+    doc:id="b9af7037-b124-4d4d-974f-0c74a4d628ce">
+    <db:data-source-connection dataSourceRef="TeradataDataSource" />
+  </db:config>
+  <kafka:producer-config name="Apache_Kafka_Producer_configuration" doc:name="Apache Kafka Producer configuration" doc:id="7fecdb8a-1eff-4adc-9c63-e38355179f07" topic="quickstart-events">
+    <kafka:producer-plaintext-connection endpointIdentificationAlgorithm="disabled" >
+      <kafka:bootstrap-servers >
+        <kafka:bootstrap-server value="${kafka.bootstrapServer}" />
+      </kafka:bootstrap-servers>
+    </kafka:producer-plaintext-connection>
+  </kafka:producer-config>
+  <kafka:consumer-config name="Apache_Kafka_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="d8bf604e-0c44-42b9-9b16-1497ae76a46a" >
+    <kafka:consumer-plaintext-connection >
+      <reconnection >
+        <reconnect-forever />
+      </reconnection>
+      <kafka:bootstrap-servers >
+        <kafka:bootstrap-server value="${kafka.bootstrapServer}" />
+      </kafka:bootstrap-servers>
+      <kafka:topic-patterns >
+        <kafka:topic-pattern value="${kafka.topic}" />
+      </kafka:topic-patterns>
+    </kafka:consumer-plaintext-connection>
+  </kafka:consumer-config>
+  <flow name="fast-import" doc:id="23dc4ada-5795-4320-a066-645ece940bc9">
+    <http:listener doc:name="HTTP POST /fast-import" doc:id="67e6f2a0-ad24-4688-b49d-8c2ad2623ec7"
+      config-ref="HTTP_Listener_config" path="/fast-import" allowedMethods="POST" />
+    <set-variable value="#[attributes.queryParams.'insert-mode']" doc:name="insert-mode"
+      doc:id="55d2367d-3b37-41e4-83e9-b912696afa8d" variableName="insert-mode" />
+    <set-variable value="#[attributes.queryParams.'import-operator']" doc:name="import-operator"
+      doc:id="f1535d3e-a649-4a2f-94f3-aa471d3eab2e" variableName="import-operator" />
+    <set-variable value="#[attributes.queryParams.'segment-size']" doc:name="segment-size"
+      doc:id="d286d241-7b02-4626-8937-25c42a260851" variableName="segment-size" />
+    <set-variable value="#[attributes.queryParams.'number-of-elements']" doc:name="number-of-elements"
+      doc:id="9f27a234-13af-4fdd-be94-e58df11031d3" variableName="number-of-elements" />
+    <set-variable value="#[attributes.queryParams.'include-nulls' as Boolean default false]"
+      doc:name="include-nulls" doc:id="fd1c6041-9aae-479f-9a93-18129d92e83a" variableName="include-nulls" />
+    <set-variable value='#[uuid() replace /-/ with("")]' doc:name="transaction_id"
+      doc:id="8c79f1ec-f599-401e-b433-b9d83f6e5915" variableName="transaction_id" />
+    <ee:transform doc:name="Create payload from variables" doc:id="ad17e3fc-d46c-4139-b48b-931cb3a7d91f">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
 import * from dw::core::Arrays
 output application/json
 skipNullOn="everywhere"
@@ -85,277 +77,226 @@ using (sampleData = [1 to vars.'number-of-elements'] map {
 	}
 })
 flatten (sampleData.id)]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-		<ee:transform doc:name="Divide the payload"
-			doc:id="1107e369-1ec9-4372-935b-5dea0195c0f9">
-			<ee:message>
-				<ee:set-payload><![CDATA[%dw 2.0
+      </ee:message>
+    </ee:transform>
+    <ee:transform doc:name="Divide the payload" doc:id="1107e369-1ec9-4372-935b-5dea0195c0f9">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
 import * from dw::core::Arrays
 output application/java
 ---
 payload divideBy vars.'segment-size']]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-		<choice doc:name="Choice"
-			doc:id="b72ac732-2de1-426a-9769-d7056fb3fc69">
-			<when
-				expression="#[vars.'import-operator' == &quot;multi-statement&quot;]">
-				<choice doc:name="Choice"
-					doc:id="d05e624c-7716-4206-ab2e-9b184734d0ef">
-					<when
-						expression="#[vars.'insert-mode' == &quot;sequential&quot;]">
-						<foreach doc:name="For Each"
-							doc:id="5f662bfb-a9d6-4dbb-af35-6f4ddd9d2f69">
-							<ee:transform doc:name="Generate SQL request"
-								doc:id="97b5e834-56b3-4167-8533-e44aafede32e">
-								<ee:message>
-								</ee:message>
-								<ee:variables>
-									<ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
+      </ee:message>
+    </ee:transform>
+    <choice doc:name="Choice" doc:id="b72ac732-2de1-426a-9769-d7056fb3fc69">
+      <when expression="#[vars.'import-operator' == &quot;multi-statement&quot;]">
+        <choice doc:name="Choice" doc:id="d05e624c-7716-4206-ab2e-9b184734d0ef">
+          <when expression="#[vars.'insert-mode' == &quot;sequential&quot;]">
+            <foreach doc:name="For Each" doc:id="5f662bfb-a9d6-4dbb-af35-6f4ddd9d2f69">
+              <ee:transform doc:name="Generate SQL request" doc:id="97b5e834-56b3-4167-8533-e44aafede32e">
+                <ee:message>
+                </ee:message>
+                <ee:variables>
+                  <ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
 import * from myModules::teradata
 output text/plain
 ---
 createMultiStatementRequestFromArray(payload, "${db.targetDatabase}", "${db.targetTable}", vars.transaction_id)]]></ee:set-variable>
-								</ee:variables>
-							</ee:transform>
-							<logger level="DEBUG" doc:name="Log SQL request"
-								doc:id="dd7d1736-adb1-4eaa-8d0e-20dc317637ef"
-								message='#["The query is: " ++ vars.dbsql]' />
-							<db:insert doc:name="Insert"
-								doc:id="aedfde37-d1df-4c70-9a0a-ae9d6748c638"
-								config-ref="Teradata_Express_DataSource" target="InsertStatementResult">
-								<db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
-							</db:insert>
-						</foreach>
-					</when>
-					<when
-						expression="#[vars.'insert-mode' == &quot;parallel&quot;]">
-						<parallel-foreach doc:name="Parallel For Each"
-							doc:id="bfe22897-39d4-49d7-9150-e128f55d68fa">
-							<ee:transform doc:name="Generate SQL request"
-								doc:id="757e9d82-f9f9-40c9-92be-4c890bc98d93">
-								<ee:message>
-								</ee:message>
-								<ee:variables>
-									<ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
+                </ee:variables>
+              </ee:transform>
+              <logger level="DEBUG" doc:name="Log SQL request" doc:id="dd7d1736-adb1-4eaa-8d0e-20dc317637ef"
+                message='#["The query is: " ++ vars.dbsql]' />
+              <db:insert doc:name="Insert" doc:id="aedfde37-d1df-4c70-9a0a-ae9d6748c638"
+                config-ref="Teradata_Express_DataSource" target="InsertStatementResult">
+                <db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
+              </db:insert>
+            </foreach>
+          </when>
+          <when expression="#[vars.'insert-mode' == &quot;parallel&quot;]">
+            <parallel-foreach doc:name="Parallel For Each"
+              doc:id="bfe22897-39d4-49d7-9150-e128f55d68fa">
+              <ee:transform doc:name="Generate SQL request" doc:id="757e9d82-f9f9-40c9-92be-4c890bc98d93">
+                <ee:message>
+                </ee:message>
+                <ee:variables>
+                  <ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
 import * from myModules::teradata
 output text/plain
 ---
 createMultiStatementRequestFromArray(payload, "${db.targetDatabase}", "${db.targetTable}", vars.transaction_id)]]></ee:set-variable>
-								</ee:variables>
-							</ee:transform>
-							<logger level="DEBUG" doc:name="Log SQL request"
-								doc:id="3aaf5d01-ea3a-4612-a87f-aed9728fe21a"
-								message='#["The query is: " ++ vars.dbsql]' />
-							<db:insert doc:name="Insert"
-								doc:id="71e0028a-0f29-40c1-8864-fd558be8bfdd"
-								config-ref="Teradata_Express_DataSource" target="InsertStatementResult">
-								<db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
-							</db:insert>
-						</parallel-foreach>
-					</when>
-					<otherwise>
-						<logger level="INFO" doc:name="Option not implemented yet"
-							doc:id="0eaabaa4-5f5f-4c70-99fc-561ee0b5e66d"
-							message="Option not implemented yet." />
-					</otherwise>
-				</choice>
-			</when>
-			<when
-				expression="#[vars.'import-operator' == &quot;prepared-statement&quot;]">
-				<ee:transform doc:name="Generate SQL request"
-					doc:id="0ecc8277-54ad-4b94-8724-7a466b4e4557">
-					<ee:message>
-					</ee:message>
-					<ee:variables>
-						<ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
+                </ee:variables>
+              </ee:transform>
+              <logger level="DEBUG" doc:name="Log SQL request" doc:id="3aaf5d01-ea3a-4612-a87f-aed9728fe21a"
+                message='#["The query is: " ++ vars.dbsql]' />
+              <db:insert doc:name="Insert" doc:id="71e0028a-0f29-40c1-8864-fd558be8bfdd"
+                config-ref="Teradata_Express_DataSource" target="InsertStatementResult">
+                <db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
+              </db:insert>
+            </parallel-foreach>
+          </when>
+          <otherwise>
+            <logger level="INFO" doc:name="Option not implemented yet"
+              doc:id="0eaabaa4-5f5f-4c70-99fc-561ee0b5e66d" message="Option not implemented yet." />
+          </otherwise>
+        </choice>
+      </when>
+      <when expression="#[vars.'import-operator' == &quot;prepared-statement&quot;]">
+        <ee:transform doc:name="Generate SQL request" doc:id="0ecc8277-54ad-4b94-8724-7a466b4e4557">
+          <ee:message>
+          </ee:message>
+          <ee:variables>
+            <ee:set-variable variableName="dbsql"><![CDATA[%dw 2.0
 import * from myModules::teradata
 output text/plain
 ---
 getParameterizedSQLStatementFromColumnList(["item_id", "item_desc"], "${db.targetDatabase}", "${db.targetTable}", vars.transaction_id)
 ]]></ee:set-variable>
-					</ee:variables>
-				</ee:transform>
-				<logger level="DEBUG" doc:name="Log SQL request"
-					doc:id="e3dac996-0d3a-48e0-a366-5e776f61b575"
-					message='#["The query is: " ++ vars.dbsql]' />
-				<choice doc:name="Choice"
-					doc:id="373dfabb-f37c-48ac-a308-3da06e845aca">
-					<when
-						expression="#[vars.'insert-mode' == &quot;sequential&quot;]">
-						<foreach doc:name="For Each"
-							doc:id="c2957ac4-9bac-4a93-90f7-426111cdac07">
-							<db:bulk-insert doc:name="Bulk insert"
-								doc:id="ea9c6cf9-da8b-4bda-9ad3-6f42ac6843ea"
-								config-ref="Teradata_Express_DataSource">
-								<db:bulk-input-parameters><![CDATA[#[payload map {
+          </ee:variables>
+        </ee:transform>
+        <logger level="DEBUG" doc:name="Log SQL request" doc:id="e3dac996-0d3a-48e0-a366-5e776f61b575"
+          message='#["The query is: " ++ vars.dbsql]' />
+        <choice doc:name="Choice" doc:id="373dfabb-f37c-48ac-a308-3da06e845aca">
+          <when expression="#[vars.'insert-mode' == &quot;sequential&quot;]">
+            <foreach doc:name="For Each" doc:id="c2957ac4-9bac-4a93-90f7-426111cdac07">
+              <db:bulk-insert doc:name="Bulk insert" doc:id="ea9c6cf9-da8b-4bda-9ad3-6f42ac6843ea"
+                config-ref="Teradata_Express_DataSource">
+                <db:bulk-input-parameters><![CDATA[#[payload map {
 	"item_id": $.item_id,
 	"item_desc": $.item_desc
 }]]]></db:bulk-input-parameters>
-								<db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
-							</db:bulk-insert>
-						</foreach>
-					</when>
-					<when
-						expression="#[vars.'insert-mode' == &quot;parallel&quot;]">
-						<parallel-foreach doc:name="Parallel For Each"
-							doc:id="7deb3bb9-8b7b-4824-be12-256350272777">
-							<db:bulk-insert doc:name="Bulk insert"
-								doc:id="7b4c5c26-ea90-4bac-a1d5-3b526440ff76"
-								config-ref="Teradata_Express_DataSource">
-								<db:bulk-input-parameters><![CDATA[#[payload map {
+                <db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
+              </db:bulk-insert>
+            </foreach>
+          </when>
+          <when expression="#[vars.'insert-mode' == &quot;parallel&quot;]">
+            <parallel-foreach doc:name="Parallel For Each"
+              doc:id="7deb3bb9-8b7b-4824-be12-256350272777">
+              <db:bulk-insert doc:name="Bulk insert" doc:id="7b4c5c26-ea90-4bac-a1d5-3b526440ff76"
+                config-ref="Teradata_Express_DataSource">
+                <db:bulk-input-parameters><![CDATA[#[payload map {
 	"item_id": $.item_id,
 	"item_desc": $.item_desc
 }]]]></db:bulk-input-parameters>
-								<db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
-							</db:bulk-insert>
-						</parallel-foreach>
-					</when>
-					<otherwise>
-						<logger level="INFO" doc:name="Option not implemented yet"
-							doc:id="feee8c1f-9678-452e-bf43-d87ff866c533"
-							message="Option not implemented yet." />
-					</otherwise>
-				</choice>
-			</when>
-			<otherwise>
-				<logger level="INFO" doc:name="Option not implemented yet"
-					doc:id="7efc9fdc-7006-4260-b5ff-9c36c876bdfd"
-					message="Option not implemented yet." />
-			</otherwise>
-		</choice>
-		<db:select doc:name="Inserted data by transaction id"
-			doc:id="798e8b42-c3ea-49d2-ac4f-b516685eb0c6"
-			config-ref="Teradata_Express_DataSource">
-			<db:sql><![CDATA[SELECT item_id, item_desc FROM MULE.FAST_IMPORT WHERE transaction_id = :transaction_id ORDER BY item_id]]></db:sql>
-			<db:input-parameters><![CDATA[#[{"transaction_id": vars.transaction_id}]]]></db:input-parameters>
-		</db:select>
-		<ee:transform doc:name="Payload to JSON"
-			doc:id="17db017d-74f6-4e09-a8eb-5df12e61785e">
-			<ee:message>
-				<ee:set-payload><![CDATA[%dw 2.0
+                <db:sql><![CDATA[#[vars.dbsql]]]></db:sql>
+              </db:bulk-insert>
+            </parallel-foreach>
+          </when>
+          <otherwise>
+            <logger level="INFO" doc:name="Option not implemented yet"
+              doc:id="feee8c1f-9678-452e-bf43-d87ff866c533" message="Option not implemented yet." />
+          </otherwise>
+        </choice>
+      </when>
+      <otherwise>
+        <logger level="INFO" doc:name="Option not implemented yet" doc:id="7efc9fdc-7006-4260-b5ff-9c36c876bdfd"
+          message="Option not implemented yet." />
+      </otherwise>
+    </choice>
+    <db:select doc:name="Inserted data by transaction id" doc:id="798e8b42-c3ea-49d2-ac4f-b516685eb0c6"
+      config-ref="Teradata_Express_DataSource">
+      <db:sql><![CDATA[SELECT item_id, item_desc FROM MULE.FAST_IMPORT WHERE transaction_id = :transaction_id ORDER BY item_id]]></db:sql>
+      <db:input-parameters><![CDATA[#[{"transaction_id": vars.transaction_id}]]]></db:input-parameters>
+    </db:select>
+    <ee:transform doc:name="Payload to JSON" doc:id="17db017d-74f6-4e09-a8eb-5df12e61785e">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
 output application/json
 ---
 payload]]></ee:set-payload>
-			</ee:message>
-		</ee:transform>
-	</flow>
-	<flow name="delete-the-target-table"
-		doc:id="c96080fb-d644-4cda-9c2e-7c15a11c4ea3">
-		<http:listener doc:name="HTTP DELETE /fast-import"
-			doc:id="15a8d54b-bc29-4704-adfc-1887ca9477e1"
-			config-ref="HTTP_Listener_config" path="/fast-import"
-			allowedMethods="DELETE">
-			<http:error-response
-				statusCode="#[vars.errorStatusCode]" />
-		</http:listener>
-		<db:delete doc:name="Empty the target table"
-			doc:id="a476da28-6db2-43c2-9f3f-b604aba3fbba"
-			config-ref="Teradata_Express_DataSource">
-			<db:sql><![CDATA[DELETE FROM MULE.FAST_IMPORT]]></db:sql>
-		</db:delete>
-		<set-payload value="#[null]" doc:name="NullPayload"
-			doc:id="a7f41b41-77da-4249-9343-95da3f4bf83d" />
-	</flow>
-	<error-handler name="teradata-db-error-handler"
-		doc:id="a9689141-217b-44b5-b044-5d344fdf5451">
-		<on-error-propagate enableNotifications="true"
-			logException="true" doc:name="On Error Propagate"
-			doc:id="05eadbcd-13ff-44db-8230-917a2bbcf78d"
-			type="DB:CONNECTIVITY">
-			<set-variable value="503" variableName="errorStatusCode"
-				doc:name="Set Status Code to 503" />
-		</on-error-propagate>
-		<on-error-propagate enableNotifications="true"
-			logException="true" doc:name="On Error Propagate"
-			doc:id="bee4bc38-9dd2-430a-b39b-84b3ee581c57"
-			when='#[error.description contains "[Error 2631]"]' type="DB:QUERY_EXECUTION">
-			<set-variable value="503" variableName="errorStatusCode"
-				doc:name="Set Status Code to 503" />
-		</on-error-propagate>
-	</error-handler>
-	<flow name="transaction-a"
-		doc:id="0d398422-c30d-4835-a572-b53f4e5a9b1a">
-		<http:listener doc:name="HTTP POST /transaction-a"
-			doc:id="44ea0285-a58e-4ece-b327-4cef6e0c34e1"
-			config-ref="HTTP_Listener_config" path="/transaction-a"
-			allowedMethods="POST">
-			<http:error-response
-				statusCode="#[vars.errorStatusCode]" />
-		</http:listener>
-		<try doc:name="Try" doc:id="31b4f32c-7c09-426f-81e6-29e44baaf25f"
-			transactionalAction="ALWAYS_BEGIN">
-			<db:execute-ddl doc:name="Lock Table A"
-				doc:id="103ba437-df2c-4161-a97f-7a6fd9b8cf04"
-				config-ref="Teradata_Express_DataSource">
-				<db:sql><![CDATA[LOCK MULE.TableA FOR WRITE;]]></db:sql>
-			</db:execute-ddl>
-			<logger level="INFO" doc:name="Wait for 3 seconds"
-				doc:id="eae1cf77-4dc4-43ef-b5e3-8aacd62fafd5"
-				message='#[%dw 2.0&#10;import * from dw::Runtime&#10;---&#10;"Waiting for 3 seconds" wait 3000]' />
-			<db:execute-ddl doc:name="Lock Table B"
-				doc:id="1017639d-c6b6-4216-8e61-d95cc6bd5132"
-				config-ref="Teradata_Express_DataSource">
-				<db:sql><![CDATA[LOCK MULE.TableB FOR WRITE;]]></db:sql>
-			</db:execute-ddl>
-		</try>
-		<set-payload value="#[null]" doc:name="NullPayload"
-			doc:id="01d7bed3-2634-4647-a101-b295b75b2752" />
-		<error-handler ref="teradata-db-error-handler" />
-	</flow>
-	<flow name="transaction-b"
-		doc:id="9c8080c2-d410-4eb4-9521-e913f7ea0237">
-		<http:listener doc:name="HTTP POST /transaction-b"
-			doc:id="28abcda4-ae11-4340-99f5-4a7ba6bf19a1"
-			config-ref="HTTP_Listener_config" path="/transaction-b"
-			allowedMethods="POST">
-			<http:error-response
-				statusCode="#[vars.errorStatusCode]" />
-		</http:listener>
-		<try doc:name="Try" doc:id="7d3a552c-5f41-440a-89a2-dabf7512ec85"
-			transactionalAction="ALWAYS_BEGIN">
-			<db:execute-ddl doc:name="Lock Table B"
-				doc:id="57b3cb3b-6bb6-4c9e-9484-7ba3033a6647"
-				config-ref="Teradata_Express_DataSource">
-				<db:sql><![CDATA[LOCK MULE.TableB FOR WRITE;]]></db:sql>
-			</db:execute-ddl>
-			<logger level="INFO" doc:name="Wait for 3 seconds"
-				doc:id="24c95569-86ec-4905-ac2c-c1fd25259e96"
-				message='#[%dw 2.0&#10;import * from dw::Runtime&#10;---&#10;"Waiting for 3 seconds" wait 3000]' />
-			<db:execute-ddl doc:name="Lock Table A"
-				doc:id="b7d1346e-a5cf-4fbe-8e65-23d0c367c3b6"
-				config-ref="Teradata_Express_DataSource">
-				<db:sql><![CDATA[LOCK MULE.TableA FOR WRITE;]]></db:sql>
-			</db:execute-ddl>
-		</try>
-		<set-payload value="#[null]" doc:name="NullPayload"
-			doc:id="1bb7bb85-4c06-4ce6-9c54-fc91361fcf1e" />
-		<error-handler ref="teradata-db-error-handler" />
-	</flow>
-	<flow name="regular-import"
-		doc:id="514d6fb5-15fd-4595-94c2-44d86fc71805">
-		<http:listener doc:name="HTTP POST /regular-import"
-			doc:id="dd708d83-de42-4008-9b99-90fb10a43878"
-			config-ref="HTTP_Listener_config" path="/regular-import">
-			<http:error-response
-				statusCode="#[vars.errorStatusCode]" />
-		</http:listener>
-		<ee:transform doc:name="Transform Message" doc:id="1037c85f-0b97-4717-b402-f9848c195cc2" >
-			<ee:message >
-			</ee:message>
-			<ee:variables >
-				<ee:set-variable variableName="minOrderDate" ><![CDATA[%dw 2.0
+      </ee:message>
+    </ee:transform>
+  </flow>
+  <flow name="delete-the-target-table" doc:id="c96080fb-d644-4cda-9c2e-7c15a11c4ea3">
+    <http:listener doc:name="HTTP DELETE /fast-import" doc:id="15a8d54b-bc29-4704-adfc-1887ca9477e1"
+      config-ref="HTTP_Listener_config" path="/fast-import" allowedMethods="DELETE">
+      <http:error-response statusCode="#[vars.errorStatusCode]" />
+    </http:listener>
+    <db:delete doc:name="Empty the target table" doc:id="a476da28-6db2-43c2-9f3f-b604aba3fbba"
+      config-ref="Teradata_Express_DataSource">
+      <db:sql><![CDATA[DELETE FROM MULE.FAST_IMPORT]]></db:sql>
+    </db:delete>
+    <set-payload value="#[null]" doc:name="NullPayload" doc:id="a7f41b41-77da-4249-9343-95da3f4bf83d" />
+  </flow>
+  <error-handler name="teradata-db-error-handler" doc:id="a9689141-217b-44b5-b044-5d344fdf5451">
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="05eadbcd-13ff-44db-8230-917a2bbcf78d" type="DB:CONNECTIVITY">
+      <set-variable value="503" variableName="errorStatusCode" doc:name="Set Status Code to 503" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="bee4bc38-9dd2-430a-b39b-84b3ee581c57" when='#[error.description contains "[Error 2631]"]'
+      type="DB:QUERY_EXECUTION">
+      <set-variable value="503" variableName="errorStatusCode" doc:name="Set Status Code to 503" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="479ce090-5803-41a3-8999-f78acc04e99f" type="MULE:COMPOSITE_ROUTING"
+      when='#[error.errors.*errorType.*asString contains "DB:CONNECTIVITY"]'>
+      <set-variable value="503" doc:name="Set Status Code to 503"
+        doc:id="0bb84ad1-1d46-410c-b404-b1481fe8675c" variableName="errorStatusCode" />
+      <set-variable value='#["Connection to database could not be established."]' doc:name="errorMessage"
+        doc:id="a400b4ca-d81d-4ad6-b820-7cf62081aef7" variableName="errorMessage" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="981de4a1-37c2-4931-877d-2f8a6d6f88e7" type="MULE:COMPOSITE_ROUTING"
+      when='#[error.errors.*errorType.*asString contains "DB:QUERY_EXECUTION"]'>
+      <set-variable
+        value='#[if (not isEmpty(error.errors.*description filter ($ contains "[Error 3134]"))) "Database connection lost, potentially due to database outage." else "Database operation failed due to database issue."]'
+        doc:name="errorMessage" doc:id="239dbf64-92c0-411b-8f91-0a6fac19c83e" variableName="errorMessage" />
+    </on-error-propagate>
+  </error-handler>
+  <flow name="transaction-a" doc:id="0d398422-c30d-4835-a572-b53f4e5a9b1a">
+    <http:listener doc:name="HTTP POST /transaction-a" doc:id="44ea0285-a58e-4ece-b327-4cef6e0c34e1"
+      config-ref="HTTP_Listener_config" path="/transaction-a" allowedMethods="POST">
+      <http:error-response statusCode="#[vars.errorStatusCode]" />
+    </http:listener>
+    <try doc:name="Try" doc:id="31b4f32c-7c09-426f-81e6-29e44baaf25f" transactionalAction="ALWAYS_BEGIN">
+      <db:execute-ddl doc:name="Lock Table A" doc:id="103ba437-df2c-4161-a97f-7a6fd9b8cf04"
+        config-ref="Teradata_Express_DataSource">
+        <db:sql><![CDATA[LOCK MULE.TableA FOR WRITE;]]></db:sql>
+      </db:execute-ddl>
+      <logger level="INFO" doc:name="Wait for 3 seconds" doc:id="eae1cf77-4dc4-43ef-b5e3-8aacd62fafd5"
+        message='#[%dw 2.0&#10;import * from dw::Runtime&#10;---&#10;"Waiting for 3 seconds" wait 3000]' />
+      <db:execute-ddl doc:name="Lock Table B" doc:id="1017639d-c6b6-4216-8e61-d95cc6bd5132"
+        config-ref="Teradata_Express_DataSource">
+        <db:sql><![CDATA[LOCK MULE.TableB FOR WRITE;]]></db:sql>
+      </db:execute-ddl>
+    </try>
+    <set-payload value="#[null]" doc:name="NullPayload" doc:id="01d7bed3-2634-4647-a101-b295b75b2752" />
+    <error-handler ref="teradata-db-error-handler" />
+  </flow>
+  <flow name="transaction-b" doc:id="9c8080c2-d410-4eb4-9521-e913f7ea0237">
+    <http:listener doc:name="HTTP POST /transaction-b" doc:id="28abcda4-ae11-4340-99f5-4a7ba6bf19a1"
+      config-ref="HTTP_Listener_config" path="/transaction-b" allowedMethods="POST">
+      <http:error-response statusCode="#[vars.errorStatusCode]" />
+    </http:listener>
+    <try doc:name="Try" doc:id="7d3a552c-5f41-440a-89a2-dabf7512ec85" transactionalAction="ALWAYS_BEGIN">
+      <db:execute-ddl doc:name="Lock Table B" doc:id="57b3cb3b-6bb6-4c9e-9484-7ba3033a6647"
+        config-ref="Teradata_Express_DataSource">
+        <db:sql><![CDATA[LOCK MULE.TableB FOR WRITE;]]></db:sql>
+      </db:execute-ddl>
+      <logger level="INFO" doc:name="Wait for 3 seconds" doc:id="24c95569-86ec-4905-ac2c-c1fd25259e96"
+        message='#[%dw 2.0&#10;import * from dw::Runtime&#10;---&#10;"Waiting for 3 seconds" wait 3000]' />
+      <db:execute-ddl doc:name="Lock Table A" doc:id="b7d1346e-a5cf-4fbe-8e65-23d0c367c3b6"
+        config-ref="Teradata_Express_DataSource">
+        <db:sql><![CDATA[LOCK MULE.TableA FOR WRITE;]]></db:sql>
+      </db:execute-ddl>
+    </try>
+    <set-payload value="#[null]" doc:name="NullPayload" doc:id="1bb7bb85-4c06-4ce6-9c54-fc91361fcf1e" />
+    <error-handler ref="teradata-db-error-handler" />
+  </flow>
+  <sub-flow name="regular-import-db-request" doc:id="49341764-a19e-48a7-856d-7589b08ead22">
+    <ee:transform doc:name="Transform Message" doc:id="1037c85f-0b97-4717-b402-f9848c195cc2">
+      <ee:message>
+      </ee:message>
+      <ee:variables>
+        <ee:set-variable variableName="minOrderDate"><![CDATA[%dw 2.0
 output application/java
 ---
 (payload.orderDate orderBy $)[0]]]></ee:set-variable>
-			</ee:variables>
-		</ee:transform>
-		<try doc:name="Try" doc:id="271dcc3e-61d3-4570-a8bb-22b758ba627c" transactionalAction="ALWAYS_BEGIN">
-			<db:bulk-update doc:name="Update fact table"
-				doc:id="b5b9188e-839c-441a-8e55-791503afde38"
-				config-ref="Teradata_Express_DataSource" target="updateResult">
-				<db:sql><![CDATA[UPDATE MULE.FACT_ORDERS FROM
+      </ee:variables>
+    </ee:transform>
+    <try doc:name="Try" doc:id="271dcc3e-61d3-4570-a8bb-22b758ba627c" transactionalAction="ALWAYS_BEGIN">
+      <db:bulk-update doc:name="Update fact table" doc:id="b5b9188e-839c-441a-8e55-791503afde38" config-ref="Teradata_Express_DataSource" target="updateResult">
+        <db:sql><![CDATA[UPDATE MULE.FACT_ORDERS FROM
 (
  SELECT 
    :orderNo AS orderNo
@@ -372,11 +313,9 @@ SET itemDesc = SRC.itemDesc
 WHERE MULE.FACT_ORDERS.orderNo = SRC.orderNo
 AND MULE.FACT_ORDERS.itemNo = SRC.itemNo
 AND MULE.FACT_ORDERS.lastUpdatedTS < SRC.lastUpdatedTS;]]></db:sql>
-			</db:bulk-update>
-			<db:bulk-insert doc:name="Insert into fact table"
-				doc:id="5999e95a-4416-48df-9661-88534b1f79b5"
-				config-ref="Teradata_Express_DataSource">
-				<db:sql><![CDATA[INSERT INTO MULE.FACT_ORDERS (
+      </db:bulk-update>
+      <db:bulk-insert doc:name="Insert into fact table" doc:id="5999e95a-4416-48df-9661-88534b1f79b5" config-ref="Teradata_Express_DataSource">
+        <db:sql><![CDATA[INSERT INTO MULE.FACT_ORDERS (
    orderNo
  , orderDate
  , customerNo
@@ -394,9 +333,9 @@ SELECT
  , :orderState
  , :lastUpdatedTS
 WHERE NOT EXISTS (SELECT 1 FROM MULE.FACT_ORDERS WHERE orderNo = :orderNo AND itemNo = :itemNo);]]></db:sql>
-			</db:bulk-insert>
-			<db:update doc:name="Merge into lookup table" doc:id="1fa62008-e3cb-41be-877c-6f8fc1ccca6b" config-ref="Teradata_Express_DataSource">
-				<db:sql ><![CDATA[MERGE INTO MULE.LU_ITEMS AS TARGET_TAB
+      </db:bulk-insert>
+      <db:update doc:name="Merge into lookup table" doc:id="1fa62008-e3cb-41be-877c-6f8fc1ccca6b" config-ref="Teradata_Express_DataSource">
+        <db:sql><![CDATA[MERGE INTO MULE.LU_ITEMS AS TARGET_TAB
 USING
 (
  SELECT
@@ -426,11 +365,97 @@ VALUES
   SOURCE_TAB.itemNo
 , SOURCE_TAB.itemDesc
 );]]></db:sql>
-				<db:input-parameters ><![CDATA[#[{'minOrderDate': vars.minOrderDate}]]]></db:input-parameters>
-			</db:update>
-		</try>
-		<set-payload value="#[null]" doc:name="NullPayload"
-			doc:id="f23aa4a2-db55-488a-909f-6f38af722a1b" />
-		<error-handler ref="teradata-db-error-handler" />
-	</flow>
+        <db:input-parameters><![CDATA[#[{'minOrderDate': vars.minOrderDate}]]]></db:input-parameters>
+      </db:update>
+      <error-handler>
+        <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="c8e49825-6699-4c61-a23e-9b008ae363ed">
+          <logger level="INFO" doc:name="Logger" doc:id="312fb3cf-e400-454c-ba81-c75344e8ab39" message="Transaction failed." />
+        </on-error-propagate>
+      </error-handler>
+    </try>
+    <set-payload value="#[null]" doc:name="NullPayload" doc:id="f23aa4a2-db55-488a-909f-6f38af722a1b" />
+  </sub-flow>
+  <flow name="regular-import" doc:id="514d6fb5-15fd-4595-94c2-44d86fc71805">
+    <http:listener doc:name="HTTP POST /regular-import" doc:id="dd708d83-de42-4008-9b99-90fb10a43878"
+      config-ref="HTTP_Listener_config" path="/regular-import">
+      <http:error-response statusCode="#[vars.errorStatusCode]" />
+    </http:listener>
+    <flow-ref doc:name="regular-import-db-request" doc:id="ce87789d-ac42-49a1-b702-041e80443ca5" name="regular-import-db-request"/>
+    <error-handler ref="teradata-db-error-handler" />
+  </flow>
+  <flow name="scatter-gather-test" doc:id="cee8e949-d8be-449f-9dea-238cf5ed6e21">
+    <http:listener doc:name="HTTP POST /scatter-gather-test" doc:id="302a3774-e616-4c73-a6cc-cf0880016a7d"
+      config-ref="HTTP_Listener_config" path="/scatter-gather-test">
+      <http:error-response statusCode="#[vars.errorStatusCode]">
+        <http:body><![CDATA[#[output text/plain --- vars.errorMessage default error.description]]]></http:body>
+      </http:error-response>
+    </http:listener>
+    <scatter-gather doc:name="Scatter-Gather" doc:id="fb70d843-b877-45d8-9a32-85fae945c0b7">
+      <route>
+        <set-variable value="DBC.DBCInfoV" doc:name="tableName" doc:id="db2b98e2-6202-4432-b8b6-17fd2abab6ce" variableName="tableName"/>
+        <db:select doc:name="'Hello world!&quot;" doc:id="f26a62fe-75d0-49fd-aec7-018967e5bcfa"
+          config-ref="Teradata_Express_DataSource">
+          <db:sql><![CDATA[#["SELECT 'Hello World!' as message, V1.* FROM " ++ vars.tableName ++ " V1;"]]]></db:sql>
+        </db:select>
+        <ee:transform doc:name="Payload to JSON" doc:id="33cf37e0-2705-468c-8745-f63559302538">
+          <ee:message>
+            <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+          </ee:message>
+        </ee:transform>
+      </route>
+      <route>
+        <set-payload value='#[output application/json --- { "message": "Hey there!" }]'
+          doc:name="'Hey there!'" doc:id="7b155b04-0f05-4bac-9b2f-949678c35d28" />
+      </route>
+    </scatter-gather>
+    <logger level="INFO" doc:name="Logger" doc:id="8419fe46-d596-45f5-bd44-1cffbf545e67"
+      message="Scatter-Gather successfully finished!" />
+    <ee:transform doc:name="Payload to JSON" doc:id="b0faf914-fa33-413c-a396-6692e4ada92d">
+      <ee:message>
+        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <error-handler ref="teradata-db-error-handler" />
+  </flow>
+  <flow name="publish-to-kafka-topic" doc:id="cf43b9c0-4964-4f5a-97f5-aec0a81c00a4" >
+    <http:listener doc:name="HTTP POST /publish-to-kafka-topic" doc:id="3b1d0e22-bf96-4e9f-a775-33e0f44d0cf7" config-ref="HTTP_Listener_config" path="/publish-to-kafka-topic"/>
+    <ee:transform doc:name="Generate random payload" doc:id="18281eea-e27f-47a1-9e8b-f2331f451395" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+import * from dw::core::Strings
+---
+(1 to 1000) as Array map (value) -> {
+    key: uuid(),
+    value: {
+        "orderNo": randomInt(899999999) + 100000000,
+        "orderDate": ((randomInt(24) + 2000) ++ "-" ++ ((randomInt(11) + 1) as String {format: "00"}) ++ "-" ++ ((randomInt(27) + 1) as String {format: "00"})) as Date + |P3D|,
+        "customerNo": randomInt(899999999) + 100000000,
+        "itemNo": randomInt(899999999) + 100000000,
+        "itemDesc": if ((value mod 2) != 0) "Hoodie" else "T-Shirt",
+        "orderState": if ((value mod 2) != 0) "In Progress" else "Shipped",
+        "lastUpdatedTS": substring(now(), 0, 23),
+    }
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <parallel-foreach doc:name="Parallel For Each" doc:id="910ff975-b119-4571-849c-c72d86ae57e8" >
+      <kafka:publish doc:name="quickstart-events" doc:id="77894c29-2494-41f9-bc27-6e2a5c594d3f" config-ref="Apache_Kafka_Producer_configuration" topic="quickstart-events" key="#[payload.key]">
+      <kafka:message><![CDATA[#[payload.value]]]></kafka:message>
+    </kafka:publish>
+    </parallel-foreach>
+    <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
+  </flow>
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
+    <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration"/>
+    <set-payload value='#[output application/json --- [read(payload, "application/json")]]' doc:name="Extract values" doc:id="cc63ad9a-a617-496b-92bc-e7b70eec5978" />
+    <flow-ref doc:name="regular-import-db-request" doc:id="950b637c-2673-48aa-bd7e-e6ffaa44012e" name="regular-import-db-request"/>
+    <error-handler ref="teradata-db-error-handler" />
+  </flow>
 </mule>
