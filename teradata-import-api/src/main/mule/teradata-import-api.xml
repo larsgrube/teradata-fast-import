@@ -45,7 +45,7 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
     </kafka:consumer-plaintext-connection>
   </kafka:consumer-config>
   <kafka:consumer-config name="Apache_Kafka_Batch_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="7738c907-fc3a-4874-8924-81017f2c2a8d" ackMode="MANUAL">
-    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" requestTimeout="8" requestTimeoutTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="500" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="5" fetchMaximumWaitTimeoutUnit="MINUTES" sessionTimeout="30">
+    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="200" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="1" fetchMaximumWaitTimeoutUnit="MINUTES" sessionTimeout="30" recordLimit="1000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES">
       <reconnection >
         <reconnect-forever />
       </reconnection>
@@ -429,9 +429,11 @@ import * from dw::core::Strings
   </flow>
   <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" >
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration"/>
+    <logger level="INFO" doc:name="Logger" doc:id="79f0402d-b1ac-4a1c-9e64-9c766c0b8718" message="Starting batch consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
     <set-payload value='#[output application/json --- payload.*payload map (value) -&gt; read(value, "application/json")]' doc:name="Set Payload" doc:id="d6e75325-dedb-44ff-b412-19fc0d9954fd" />
     <flow-ref doc:name="regular-import-db-request" doc:id="25a49f23-19c7-4fa3-b6ae-07d7ff2ee9cf" name="regular-import-db-request"/>
+    <logger level="INFO" doc:name="Logger" doc:id="879ddb9a-cc05-4c87-a4ce-ae8ff0116321" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="7cdb938a-ceaf-422f-991f-8604e40adc45" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
   </flow>
 </mule>

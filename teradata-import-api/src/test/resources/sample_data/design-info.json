@@ -9,6 +9,9 @@
     },
     "1037c85f-0b97-4717-b402-f9848c195cc2": {
       "payload": "sample_data/java_4.dwl"
+    },
+    "18281eea-e27f-47a1-9e8b-f2331f451395": {
+      "attributes": "sample_data/httprequestattributes.dwl"
     }
   }
 }
