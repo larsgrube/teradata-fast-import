@@ -45,7 +45,7 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
     </kafka:consumer-plaintext-connection>
   </kafka:consumer-config>
   <kafka:consumer-config name="Apache_Kafka_Batch_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="7738c907-fc3a-4874-8924-81017f2c2a8d" ackMode="MANUAL">
-    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="200" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="1" fetchMaximumWaitTimeoutUnit="MINUTES" sessionTimeout="30" recordLimit="1000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES">
+    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="200" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="1" fetchMaximumWaitTimeoutUnit="MINUTES" sessionTimeout="30" recordLimit="10000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES">
       <reconnection >
         <reconnect-forever />
       </reconnection>
@@ -435,5 +435,10 @@ import * from dw::core::Strings
     <flow-ref doc:name="regular-import-db-request" doc:id="25a49f23-19c7-4fa3-b6ae-07d7ff2ee9cf" name="regular-import-db-request"/>
     <logger level="INFO" doc:name="Logger" doc:id="879ddb9a-cc05-4c87-a4ce-ae8ff0116321" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="7cdb938a-ceaf-422f-991f-8604e40adc45" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
+    <error-handler >
+      <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="64cb733b-be89-4a7c-8ade-752291eb6f08" >
+        <logger level="INFO" doc:name="Logger" doc:id="0ac26956-d398-4e48-9171-9389eff3bbaf" message='#[%dw 2.0&#10;import * from dw::Runtime&#10;---&#10;"Error occured, flow processing delayed for 10 seconds" wait 10000]'/>
+      </on-error-propagate>
+    </error-handler>
   </flow>
 </mule>
