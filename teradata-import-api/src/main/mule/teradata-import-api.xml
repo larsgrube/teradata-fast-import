@@ -16,10 +16,6 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
     doc:id="493d056c-9083-4655-a95d-4ab1dcdc7fc4">
     <http:listener-connection host="0.0.0.0" port="8081" />
   </http:listener-config>
-  <db:config name="Teradata_Express" doc:name="Database Config" doc:id="de4bd358-e91f-4bb0-870b-74f4d542c144">
-    <db:generic-connection url="jdbc:teradata://192.168.0.10/USER=dbc,PASSWORD=dbc,TMODE=TERA"
-      driverClassName="com.teradata.jdbc.TeraDriver" user="maxthemule" password="teradatarocks" />
-  </db:config>
   <configuration-properties doc:name="Configuration properties"
     doc:id="47bbb02a-180a-40b6-90bb-7411073ba51e" file="configuration.yaml" />
   <spring:config name="Spring_Config" doc:name="Spring Config"
@@ -37,6 +33,19 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
   </kafka:producer-config>
   <kafka:consumer-config name="Apache_Kafka_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="d8bf604e-0c44-42b9-9b16-1497ae76a46a" >
     <kafka:consumer-plaintext-connection >
+      <reconnection >
+        <reconnect-forever />
+      </reconnection>
+      <kafka:bootstrap-servers >
+        <kafka:bootstrap-server value="${kafka.bootstrapServer}" />
+      </kafka:bootstrap-servers>
+      <kafka:topic-patterns >
+        <kafka:topic-pattern value="${kafka.topic}" />
+      </kafka:topic-patterns>
+    </kafka:consumer-plaintext-connection>
+  </kafka:consumer-config>
+  <kafka:consumer-config name="Apache_Kafka_Batch_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="7738c907-fc3a-4874-8924-81017f2c2a8d" ackMode="MANUAL">
+    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" requestTimeout="8" requestTimeoutTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="500" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="5" fetchMaximumWaitTimeoutUnit="MINUTES" sessionTimeout="30">
       <reconnection >
         <reconnect-forever />
       </reconnection>
@@ -383,46 +392,6 @@ VALUES
     <flow-ref doc:name="regular-import-db-request" doc:id="ce87789d-ac42-49a1-b702-041e80443ca5" name="regular-import-db-request"/>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
-  <flow name="scatter-gather-test" doc:id="cee8e949-d8be-449f-9dea-238cf5ed6e21">
-    <http:listener doc:name="HTTP POST /scatter-gather-test" doc:id="302a3774-e616-4c73-a6cc-cf0880016a7d"
-      config-ref="HTTP_Listener_config" path="/scatter-gather-test">
-      <http:error-response statusCode="#[vars.errorStatusCode]">
-        <http:body><![CDATA[#[output text/plain --- vars.errorMessage default error.description]]]></http:body>
-      </http:error-response>
-    </http:listener>
-    <scatter-gather doc:name="Scatter-Gather" doc:id="fb70d843-b877-45d8-9a32-85fae945c0b7">
-      <route>
-        <set-variable value="DBC.DBCInfoV" doc:name="tableName" doc:id="db2b98e2-6202-4432-b8b6-17fd2abab6ce" variableName="tableName"/>
-        <db:select doc:name="'Hello world!&quot;" doc:id="f26a62fe-75d0-49fd-aec7-018967e5bcfa"
-          config-ref="Teradata_Express_DataSource">
-          <db:sql><![CDATA[#["SELECT 'Hello World!' as message, V1.* FROM " ++ vars.tableName ++ " V1;"]]]></db:sql>
-        </db:select>
-        <ee:transform doc:name="Payload to JSON" doc:id="33cf37e0-2705-468c-8745-f63559302538">
-          <ee:message>
-            <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-payload]]></ee:set-payload>
-          </ee:message>
-        </ee:transform>
-      </route>
-      <route>
-        <set-payload value='#[output application/json --- { "message": "Hey there!" }]'
-          doc:name="'Hey there!'" doc:id="7b155b04-0f05-4bac-9b2f-949678c35d28" />
-      </route>
-    </scatter-gather>
-    <logger level="INFO" doc:name="Logger" doc:id="8419fe46-d596-45f5-bd44-1cffbf545e67"
-      message="Scatter-Gather successfully finished!" />
-    <ee:transform doc:name="Payload to JSON" doc:id="b0faf914-fa33-413c-a396-6692e4ada92d">
-      <ee:message>
-        <ee:set-payload><![CDATA[%dw 2.0
-output application/json
----
-payload]]></ee:set-payload>
-      </ee:message>
-    </ee:transform>
-    <error-handler ref="teradata-db-error-handler" />
-  </flow>
   <flow name="publish-to-kafka-topic" doc:id="cf43b9c0-4964-4f5a-97f5-aec0a81c00a4" >
     <http:listener doc:name="HTTP POST /publish-to-kafka-topic" doc:id="3b1d0e22-bf96-4e9f-a775-33e0f44d0cf7" config-ref="HTTP_Listener_config" path="/publish-to-kafka-topic"/>
     <ee:transform doc:name="Generate random payload" doc:id="18281eea-e27f-47a1-9e8b-f2331f451395" >
@@ -431,7 +400,7 @@ payload]]></ee:set-payload>
 output application/json
 import * from dw::core::Strings
 ---
-(1 to 1000) as Array map (value) -> {
+(1 to attributes.headers.payloadSize) as Array map (value) -> {
     key: uuid(),
     value: {
         "orderNo": randomInt(899999999) + 100000000,
@@ -440,7 +409,7 @@ import * from dw::core::Strings
         "itemNo": randomInt(899999999) + 100000000,
         "itemDesc": if ((value mod 2) != 0) "Hoodie" else "T-Shirt",
         "orderState": if ((value mod 2) != 0) "In Progress" else "Shipped",
-        "lastUpdatedTS": substring(now(), 0, 23),
+        "lastUpdatedTS": ((randomInt(24) + 2000) ++ "-" ++ ((randomInt(11) + 1) as String {format: "00"}) ++ "-" ++ ((randomInt(27) + 1) as String {format: "00"})) as Date + |P3D| ++ "T" ++ randomInt(23) as String {format: "00"} ++ ":" ++ randomInt(59) as String {format: "00"} ++ ":" ++ randomInt(23) as String {format: "00"} ++ "." ++ randomInt(999) as String {format: "000"}
     }
 }]]></ee:set-payload>
       </ee:message>
@@ -452,10 +421,17 @@ import * from dw::core::Strings
     </parallel-foreach>
     <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
   </flow>
-  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
-    <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration"/>
-    <set-payload value='#[output application/json --- [read(payload, "application/json")]]' doc:name="Extract values" doc:id="cc63ad9a-a617-496b-92bc-e7b70eec5978" />
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="stopped">
+    <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Batch_Consumer_configuration"/>
+    <set-payload value='#[output application/json --- [read(payload, "application/json")]]' doc:name="Set Payload" doc:id="cc63ad9a-a617-496b-92bc-e7b70eec5978" />
     <flow-ref doc:name="regular-import-db-request" doc:id="950b637c-2673-48aa-bd7e-e6ffaa44012e" name="regular-import-db-request"/>
     <error-handler ref="teradata-db-error-handler" />
+  </flow>
+  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" >
+    <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration"/>
+    <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
+    <set-payload value='#[output application/json --- payload.*payload map (value) -&gt; read(value, "application/json")]' doc:name="Set Payload" doc:id="d6e75325-dedb-44ff-b412-19fc0d9954fd" />
+    <flow-ref doc:name="regular-import-db-request" doc:id="25a49f23-19c7-4fa3-b6ae-07d7ff2ee9cf" name="regular-import-db-request"/>
+    <kafka:commit doc:name="quickstart-events" doc:id="7cdb938a-ceaf-422f-991f-8604e40adc45" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
   </flow>
 </mule>
