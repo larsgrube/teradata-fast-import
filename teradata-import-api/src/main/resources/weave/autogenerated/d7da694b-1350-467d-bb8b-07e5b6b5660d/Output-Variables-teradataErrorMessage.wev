@@ -1,0 +1,4 @@
+%dw 2.0
+
+type auto_d7da694b_1350_467d_bb8b_07e5b6b5660d_Output_Variables_teradataErrorMessage = Any
+
