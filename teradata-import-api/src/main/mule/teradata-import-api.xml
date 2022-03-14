@@ -40,7 +40,7 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
         <kafka:bootstrap-server value="${kafka.bootstrapServer}" />
       </kafka:bootstrap-servers>
       <kafka:topic-patterns >
-        <kafka:topic-pattern value="${kafka.topic}" />
+        <kafka:topic-pattern value="quickstart-events" />
       </kafka:topic-patterns>
     </kafka:consumer-plaintext-connection>
   </kafka:consumer-config>
@@ -53,7 +53,7 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
         <kafka:bootstrap-server value="${kafka.bootstrapServer}" />
       </kafka:bootstrap-servers>
       <kafka:topic-patterns >
-        <kafka:topic-pattern value="${kafka.topic}" />
+        <kafka:topic-pattern value="quickstart-events" />
       </kafka:topic-patterns>
     </kafka:consumer-plaintext-connection>
   </kafka:consumer-config>
