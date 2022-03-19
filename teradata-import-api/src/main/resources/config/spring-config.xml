@@ -16,7 +16,7 @@
 			value="com.teradata.jdbc.TeraDriver" />
 		<property name="jdbcUrl"
 			value="jdbc:teradata://${db.IP}/USER=${db.user},PASSWORD=${db.password},TMODE=TERA" />
-		<property name="maxPoolSize" value="2" />
+		<property name="maxPoolSize" value="3" />
 		<property name="maxIdleTime" value="120" />
 	</bean>
 
