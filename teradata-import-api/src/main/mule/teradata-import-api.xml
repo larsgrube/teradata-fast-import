@@ -226,37 +226,6 @@ payload]]></ee:set-payload>
     </db:delete>
     <set-payload value="#[null]" doc:name="NullPayload" doc:id="a7f41b41-77da-4249-9343-95da3f4bf83d" />
   </flow>
-    <sub-flow name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="d7da694b-1350-467d-bb8b-07e5b6b5660d" >
-        <set-variable value='#[vars.teradataErrorMessage match {&#10;   case errmsg if errmsg contains "[Error 2631]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 1095]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 3134]" -&gt; 503&#10;   else -&gt; 500&#10;}]' doc:name="httpStatus" doc:id="166e3b08-5e5e-4c25-bdb8-59ca1b645e01" variableName="httpStatus" />
-        <set-variable value='#[if (vars.isTeradataBatchError)&#10;("Teradata database batch error occured, root cause: "&#10;   ++ (&#10;       if (not (vars.teradataErrorMessage contains /(\[Error 1338\]|\[Error 1339\])/)) vars.teradataErrorMessage&#10;       else "Not found"&#10;       )&#10;)&#10;else "Teradata database error occured, please refer to system log for further error details."]' doc:name="logErrorMessage" doc:id="93c3ca7a-476b-4d9a-8a93-c7604ed96928" variableName="logErrorMessage" />
-        <logger level="INFO" doc:name="logErrorMessage" doc:id="215eef2f-d138-4a93-b908-20d0f0e6c738" message='#[vars.logErrorMessage]'/>
-    </sub-flow>
-  <error-handler name="teradata-db-error-handler" doc:id="a9689141-217b-44b5-b044-5d344fdf5451">
-    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
-      doc:id="05eadbcd-13ff-44db-8230-917a2bbcf78d" type="DB:CONNECTIVITY">
-      <set-variable value="503" variableName="errorStatusCode" doc:name="Set Status Code to 503" />
-    </on-error-propagate>
-    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
-      doc:id="bee4bc38-9dd2-430a-b39b-84b3ee581c57" type="DB:QUERY_EXECUTION">
-            <set-variable value='#[error.description contains /(\[Error 1338\]|\[Error 1339\])/]' doc:name="isTeradataBatchError" doc:id="01ff7d40-ca9c-4ec6-8acb-82089f88631c" variableName="isTeradataBatchError"/>
-            <set-variable value="#[(&#10;   if (vars.isTeradataBatchError)&#10;   (error.exception..next filter (not (($.detailMessage contains /(\[Error 1338\]|\[Error 1339\])/) or ($.detailMessage == null))) distinctBy $)[0].detailMessage&#10;   else null&#10;) default error.description]" doc:name="teradataErrorMessage" doc:id="ee3ff47f-2567-411e-abd9-e1f48dac8ddc" variableName="teradataErrorMessage"/>
-            <flow-ref doc:name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="da82d4ad-ce40-4f86-a974-5c82b26eb6f6" name="teradata-set-http-status-and-error-message-for-query-execution-error" />
-    </on-error-propagate>
-    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
-      doc:id="479ce090-5803-41a3-8999-f78acc04e99f" type="MULE:COMPOSITE_ROUTING"
-      when='#[(error.errors ++ (flatten(error.errors.*errors) default [])).*errorType.*asString contains "DB:CONNECTIVITY"]'>
-      <set-variable value="503" doc:name="Set Status Code to 503"
-        doc:id="0bb84ad1-1d46-410c-b404-b1481fe8675c" variableName="errorStatusCode" />
-    </on-error-propagate>
-    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
-      doc:id="981de4a1-37c2-4931-877d-2f8a6d6f88e7" type="MULE:COMPOSITE_ROUTING"
-      when='#[(error.errors ++ (flatten(error.errors.*errors) default [])).*errorType.*asString contains "DB:QUERY_EXECUTION"]'>
-            <set-variable value="#[(((error.errors filter ($.description contains /(\[Error 1338\]|\[Error 1339\])/))..next.detailMessage filter (not (($ contains /(\[Error 1338\]|\[Error 1339\])/) or ($ == null))) distinctBy $ default [] map {({teradataErrorMessage: $} ++ {isTeradataBatchError: true})})&#10;++&#10;(error.errors.*description filter (not ($ contains /(\[Error 1338\]|\[Error 1339\])/)) distinctBy $ default [] map {({teradataErrorMessage: $} ++ {isTeradataBatchError: false})}))&#10;minBy not ($.teradataErrorMessage contains /(\[Error 2631\]|\[Error 1095\]|\[Error 3134\])/)]" doc:name="teradataErrorObject" doc:id="a14b357f-8a69-4dab-928f-d3f212c821e6" variableName="teradataErrorObject"/>
-            <set-variable value="#[vars.teradataErrorObject.isTeradataBatchError]" doc:name="isTeradataBatchError" doc:id="e627849f-ef6c-4f4b-bd81-a46f925ff599" variableName="isTeradataBatchError"/>
-            <set-variable value="#[vars.teradataErrorObject.teradataErrorMessage]" doc:name="teradataErrorMessage" doc:id="87640a4e-af85-42ab-aab2-ba4a84f68ed9" variableName="teradataErrorMessage"/>
-            <flow-ref doc:name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="70da1fc4-9871-40aa-b68a-9198bbb67ff2" name="teradata-set-http-status-and-error-message-for-query-execution-error"/>
-    </on-error-propagate>
-  </error-handler>
   <flow name="transaction-a" doc:id="0d398422-c30d-4835-a572-b53f4e5a9b1a">
     <http:listener doc:name="HTTP POST /transaction-a" doc:id="44ea0285-a58e-4ece-b327-4cef6e0c34e1"
       config-ref="HTTP_Listener_config" path="/transaction-a" allowedMethods="POST">
@@ -319,7 +288,7 @@ output application/java
  , :itemNo AS itemNo
  , :itemDesc AS itemDesc
  , :orderState AS orderState
- , :lastUpdatedTS AS lastUpdatedTS
+ , CAST(:lastUpdatedTS AS TIMESTAMP(0)) AS lastUpdatedTS
 ) SRC
 SET itemDesc = SRC.itemDesc
   , orderState = SRC.orderState
@@ -345,7 +314,7 @@ SELECT
  , :itemNo
  , :itemDesc
  , :orderState
- , :lastUpdatedTS
+ , CAST(:lastUpdatedTS AS TIMESTAMP(0))
 WHERE NOT EXISTS (SELECT 1 FROM MULE.FACT_ORDERS WHERE orderNo = :orderNo AND itemNo = :itemNo);]]></db:sql>
       </db:bulk-insert>
       <db:update doc:name="Merge into lookup table" doc:id="1fa62008-e3cb-41be-877c-6f8fc1ccca6b" config-ref="Teradata_Express_DataSource">
@@ -414,7 +383,7 @@ import * from dw::core::Strings
         "itemNo": randomInt(899999999) + 100000000,
         "itemDesc": if ((value mod 2) != 0) "Hoodie" else "T-Shirt",
         "orderState": if ((value mod 2) != 0) "In Progress" else "Shipped",
-        "lastUpdatedTS": ((randomInt(24) + 2000) ++ "-" ++ ((randomInt(11) + 1) as String {format: "00"}) ++ "-" ++ ((randomInt(27) + 1) as String {format: "00"})) as Date + |P3D| ++ "T" ++ randomInt(23) as String {format: "00"} ++ ":" ++ randomInt(59) as String {format: "00"} ++ ":" ++ randomInt(23) as String {format: "00"} ++ "." ++ randomInt(999) as String {format: "000"}
+        "lastUpdatedTS": ((randomInt(24) + 2000) ++ "-" ++ ((randomInt(11) + 1) as String {format: "00"}) ++ "-" ++ ((randomInt(27) + 1) as String {format: "00"})) as Date + |P3D| ++ " " ++ randomInt(23) as String {format: "00"} ++ ":" ++ randomInt(59) as String {format: "00"} ++ ":" ++ randomInt(23) as String {format: "00"} ++ "." ++ randomInt(999) as String {format: "000"}
     }
 }]]></ee:set-payload>
       </ee:message>
@@ -436,14 +405,87 @@ import * from dw::core::Strings
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration"/>
     <logger level="INFO" doc:name="Logger" doc:id="79f0402d-b1ac-4a1c-9e64-9c766c0b8718" message="Starting batch consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
-    <set-payload value='#[output application/json --- payload.*payload map (value) -&gt; read(value, "application/json")]' doc:name="Set Payload" doc:id="d6e75325-dedb-44ff-b412-19fc0d9954fd" />
-    <flow-ref doc:name="regular-import-db-request" doc:id="25a49f23-19c7-4fa3-b6ae-07d7ff2ee9cf" name="regular-import-db-request"/>
+    <ee:transform doc:name="Prepare payload for database request" doc:id="f12237da-1585-40a4-b860-67e8bb696b55" >
+      <ee:message >
+        <ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.*payload map (value, index) -> do {
+    var jsonVal = read(value, "application/json")
+    ---
+    {
+        orderNo: jsonVal.orderNo,
+        orderDate: jsonVal.orderDate,
+        customerNo: jsonVal.customerNo,
+        itemNo: jsonVal.itemNo,
+        itemDesc: jsonVal.itemDesc,
+        orderState: jsonVal.orderState,
+        lastUpdatedTS: jsonVal.lastUpdatedTS,
+        mule_correlation_id: correlationId,
+        row_number_by_payload: index 
+    }
+}]]></ee:set-payload>
+      </ee:message>
+    </ee:transform>
+    <db:bulk-insert doc:name="Insert into staging table" doc:id="7566347a-758f-4d8d-8051-df07d24707c1" config-ref="Teradata_Express_DataSource">
+      <db:sql ><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
+   orderNo
+ , orderDate
+ , customerNo
+ , itemNo
+ , itemDesc
+ , orderState
+ , lastUpdatedTS
+ , mule_correlation_id
+ , row_number_by_payload
+)
+VALUES
+(
+   :orderNo
+ , :orderDate
+ , :customerNo
+ , :itemNo
+ , :itemDesc
+ , :orderState
+ , CAST(:lastUpdatedTS AS TIMESTAMP(3))
+ , :mule_correlation_id
+ , :row_number_by_payload
+)
+;]]></db:sql>
+    </db:bulk-insert>
     <logger level="INFO" doc:name="Logger" doc:id="879ddb9a-cc05-4c87-a4ce-ae8ff0116321" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="7cdb938a-ceaf-422f-991f-8604e40adc45" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
-    <error-handler >
-      <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="64cb733b-be89-4a7c-8ade-752291eb6f08" >
-        <logger level="INFO" doc:name="Logger" doc:id="0ac26956-d398-4e48-9171-9389eff3bbaf" message='#[%dw 2.0&#10;import * from dw::Runtime&#10;---&#10;"Error occured, flow processing delayed for 10 seconds" wait 10000]'/>
-      </on-error-propagate>
-    </error-handler>
+    <error-handler ref="teradata-db-error-handler" />
   </flow>
+  <error-handler name="teradata-db-error-handler" doc:id="445056de-97ff-4844-8e2e-abc389b4cdb5">
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="128cafdd-f6b8-43a7-8c0f-29b6a0abecf6" type="DB:CONNECTIVITY">
+      <set-variable value="503" variableName="errorStatusCode" doc:name="Set Status Code to 503" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="4de6a422-1a1c-4cd7-87e0-3956ab68f00f" type="DB:QUERY_EXECUTION">
+            <set-variable value='#[error.description contains /(\[Error 1338\]|\[Error 1339\])/]' doc:name="isTeradataBatchError" doc:id="46ad5336-ad5b-4a3e-bd7a-6e133521e1f2" variableName="isTeradataBatchError"/>
+            <set-variable value="#[(&#10;   if (vars.isTeradataBatchError)&#10;   (error.exception..next filter (not (($.detailMessage contains /(\[Error 1338\]|\[Error 1339\])/) or ($.detailMessage == null))) distinctBy $)[0].detailMessage&#10;   else null&#10;) default error.description]" doc:name="teradataErrorMessage" doc:id="61f685d8-c2e5-4df0-8ccf-287075339ec8" variableName="teradataErrorMessage"/>
+            <flow-ref doc:name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="2e28abb9-f77b-4066-b471-d9edce73f9eb" name="teradata-set-http-status-and-error-message-for-query-execution-error" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="a288805b-d5ee-47fa-b9e3-401b58f4f080" type="MULE:COMPOSITE_ROUTING"
+      when='#[(error.errors ++ (flatten(error.errors.*errors) default [])).*errorType.*asString contains "DB:CONNECTIVITY"]'>
+      <set-variable value="503" doc:name="Set Status Code to 503"
+        doc:id="0c21dd2d-a6fa-4d9a-9e22-519fcd04d435" variableName="errorStatusCode" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="9b938893-1d5f-4ea5-b6cc-3b4b5fdd0c3f" type="MULE:COMPOSITE_ROUTING"
+      when='#[(error.errors ++ (flatten(error.errors.*errors) default [])).*errorType.*asString contains "DB:QUERY_EXECUTION"]'>
+            <set-variable value="#[(((error.errors filter ($.description contains /(\[Error 1338\]|\[Error 1339\])/))..next.detailMessage filter (not (($ contains /(\[Error 1338\]|\[Error 1339\])/) or ($ == null))) distinctBy $ default [] map {({teradataErrorMessage: $} ++ {isTeradataBatchError: true})})&#10;++&#10;(error.errors.*description filter (not ($ contains /(\[Error 1338\]|\[Error 1339\])/)) distinctBy $ default [] map {({teradataErrorMessage: $} ++ {isTeradataBatchError: false})}))&#10;minBy not ($.teradataErrorMessage contains /(\[Error 2631\]|\[Error 1095\]|\[Error 3134\])/)]" doc:name="teradataErrorObject" doc:id="a201b7fc-4d4b-4bab-86ee-cc3039e109e8" variableName="teradataErrorObject"/>
+            <set-variable value="#[vars.teradataErrorObject.isTeradataBatchError]" doc:name="isTeradataBatchError" doc:id="f9393a7f-f297-41b2-8605-2010f6fe736b" variableName="isTeradataBatchError"/>
+            <set-variable value="#[vars.teradataErrorObject.teradataErrorMessage]" doc:name="teradataErrorMessage" doc:id="3db3eb78-8975-4a28-940b-a1c547701586" variableName="teradataErrorMessage"/>
+            <flow-ref doc:name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="6c5a8989-85ed-4baf-a637-2c0bd9cbf84f" name="teradata-set-http-status-and-error-message-for-query-execution-error"/>
+    </on-error-propagate>
+  </error-handler>
+    <sub-flow name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="66710ac6-0a29-4f4c-b016-8bc9e21ede27" >
+        <set-variable value='#[vars.teradataErrorMessage match {&#10;   case errmsg if errmsg contains "[Error 2631]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 1095]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 3134]" -&gt; 503&#10;   else -&gt; 500&#10;}]' doc:name="httpStatus" doc:id="5cf6d545-4cff-4662-9a62-93f15cff42c5" variableName="httpStatus" />
+        <set-variable value='#[if (vars.isTeradataBatchError)&#10;("Teradata database batch error occured, root cause: "&#10;   ++ (&#10;       if (not (vars.teradataErrorMessage contains /(\[Error 1338\]|\[Error 1339\])/)) vars.teradataErrorMessage&#10;       else "Not found"&#10;       )&#10;)&#10;else "Teradata database error occured, please refer to system log for further error details."]' doc:name="logErrorMessage" doc:id="36037a67-db74-4f29-9a76-0d2bb619ff5f" variableName="logErrorMessage" />
+        <logger level="INFO" doc:name="logErrorMessage" doc:id="43c02a1e-c01b-42f1-b0bf-9cb24dda88ec" message='#[vars.logErrorMessage]'/>
+    </sub-flow>
 </mule>
