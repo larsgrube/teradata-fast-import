@@ -395,7 +395,7 @@ import * from dw::core::Strings
     </parallel-foreach>
     <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
   </flow>
-  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="stopped">
     <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="43f04ccf-aa59-4f70-87c8-ff1b3f9699a2" message="Starting consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="39f96406-9dac-44c9-b6c2-5b34be21e53b" variableName="consumerCommitKey"/>
@@ -448,7 +448,7 @@ VALUES
     <kafka:commit doc:name="quickstart-events" doc:id="ef520540-6948-40a6-9a0d-ab0964de5e89" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
-  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="stopped">
+  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="started">
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="79f0402d-b1ac-4a1c-9e64-9c766c0b8718" message="Starting batch consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
@@ -456,8 +456,9 @@ VALUES
       <ee:message >
         <ee:set-payload ><![CDATA[%dw 2.0
 output application/json
+import divideBy from dw::core::Arrays
 ---
-payload.*payload map (value, index) -> do {
+(payload.*payload map (value, index) -> do {
     var jsonVal = read(value, "application/json")
     ---
     {
@@ -471,10 +472,10 @@ payload.*payload map (value, index) -> do {
         mule_correlation_id: correlationId,
         row_number_by_payload: index 
     }
-}]]></ee:set-payload>
+}) divideBy 100]]></ee:set-payload>
       </ee:message>
     </ee:transform>
-    <foreach doc:name="For Each" doc:id="9224be35-d86f-4987-a15b-6cd0acbdcfd3" batchSize="100">
+    <parallel-foreach doc:name="Parallel For Each" doc:id="9fed2681-8454-4c7f-b622-70914bbf6b82" >
       <db:bulk-insert doc:name="Insert into staging table" doc:id="7566347a-758f-4d8d-8051-df07d24707c1" config-ref="Teradata_Express_DataSource">
       <db:sql><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
    orderNo
@@ -501,7 +502,7 @@ VALUES
 )
 ;]]></db:sql>
     </db:bulk-insert>
-    </foreach>
+    </parallel-foreach>
     <logger level="INFO" doc:name="Logger" doc:id="879ddb9a-cc05-4c87-a4ce-ae8ff0116321" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="7cdb938a-ceaf-422f-991f-8604e40adc45" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
     <error-handler ref="teradata-db-error-handler" />
