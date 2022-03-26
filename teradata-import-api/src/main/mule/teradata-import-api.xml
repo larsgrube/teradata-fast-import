@@ -395,7 +395,7 @@ import * from dw::core::Strings
     </parallel-foreach>
     <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
   </flow>
-  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="stopped">
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
     <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="43f04ccf-aa59-4f70-87c8-ff1b3f9699a2" message="Starting consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="39f96406-9dac-44c9-b6c2-5b34be21e53b" variableName="consumerCommitKey"/>
@@ -406,14 +406,22 @@ output application/json
 var jsonVal = read(payload, "application/json")
 ---
 {
-    orderNo: jsonVal.orderNo,
-    orderDate: jsonVal.orderDate,
-    customerNo: jsonVal.customerNo,
-    itemNo: jsonVal.itemNo,
-    itemDesc: jsonVal.itemDesc,
-    orderState: jsonVal.orderState,
-    lastUpdatedTS: jsonVal.lastUpdatedTS,
-    mule_correlation_id: correlationId
+    attributes: {
+        key: attributes.key as String replace /\"/ with "",
+        creationTimestamp: attributes.creationTimestamp,
+        partition: attributes.partition,
+        offset: attributes.offset
+    },
+    value: {
+        orderNo: jsonVal.orderNo,
+        orderDate: jsonVal.orderDate,
+        customerNo: jsonVal.customerNo,
+        itemNo: jsonVal.itemNo,
+        itemDesc: jsonVal.itemDesc,
+        orderState: jsonVal.orderState,
+        lastUpdatedTS: jsonVal.lastUpdatedTS,
+        mule_correlation_id: correlationId
+    }
 }]]></ee:set-payload>
       </ee:message>
     </ee:transform>
@@ -442,13 +450,13 @@ VALUES
  , 1
 )
 ;]]></db:sql>
-      <db:input-parameters ><![CDATA[#[payload]]]></db:input-parameters>
+      <db:input-parameters ><![CDATA[#[payload.value]]]></db:input-parameters>
     </db:insert>
     <logger level="INFO" doc:name="Logger" doc:id="83729910-d787-44ed-9824-d175a670f324" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="ef520540-6948-40a6-9a0d-ab0964de5e89" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
-  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="started">
+  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="stopped">
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="79f0402d-b1ac-4a1c-9e64-9c766c0b8718" message="Starting batch consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
