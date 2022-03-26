@@ -395,7 +395,7 @@ import * from dw::core::Strings
     </parallel-foreach>
     <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
   </flow>
-  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="stopped">
     <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="43f04ccf-aa59-4f70-87c8-ff1b3f9699a2" message="Starting consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="39f96406-9dac-44c9-b6c2-5b34be21e53b" variableName="consumerCommitKey"/>
@@ -427,15 +427,20 @@ var jsonVal = guard(() -> read(payload, "application/json"))
 }]]></ee:set-payload>
       </ee:message>
     </ee:transform>
-    <try doc:name="Try" doc:id="8c87870c-0680-4d21-8036-215d4708ed8c" >
-      <flow-ref doc:name="teradata-db-insert" doc:id="bdbe4a64-ef75-4fb1-a5d9-9f5a4df3a9e9" name="teradata-db-insert" />
-      <error-handler >
-        <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6a1527f2-a740-4d6b-8935-73c95b045aeb" when="#[vars.errorStatusCode == 503]">
-          <logger level="INFO" doc:name="Logger" doc:id="7315a29b-dda6-49d7-b40c-6f7caab33f8f" message="An irreproducible error occured, propagating error to parent flow."/>
+    <flow-ref doc:name="try-teradata-db-request" doc:id="93aad769-3749-4a33-b82d-085def9a9bf0" name="try-teradata-db-request" />
+    <logger level="INFO" doc:name="Logger" doc:id="83729910-d787-44ed-9824-d175a670f324" message="Committing message."/>
+    <kafka:commit doc:name="quickstart-events" doc:id="ef520540-6948-40a6-9a0d-ab0964de5e89" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
+  </flow>
+  <sub-flow name="try-teradata-db-request" doc:id="f13bc08d-f12f-4d88-94d9-6f823c42d307">
+    <try doc:name="Try" doc:id="19ff9ab4-0772-41f0-9086-8e17fca5a5d5">
+      <flow-ref doc:name="teradata-db-insert" doc:id="60754834-18f6-46b1-b03a-bd1ec0cde8e2" name="teradata-db-insert" />
+      <error-handler>
+        <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b9eae291-d088-45ed-b956-0521cea1dc1d" when="#[vars.errorStatusCode == 503]">
+          <logger level="INFO" doc:name="Logger" doc:id="e851d2f3-dc23-4190-8ce0-9df6dff1ea3a" message="An irreproducible error occured, propagating error to parent flow." />
         </on-error-propagate>
-        <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="87f87df4-5368-4b4f-90a0-44d13a384caf" >
-          <db:insert doc:name="Insert into log table" doc:id="0b047e27-8919-43d6-9bb1-29b64d2fe5eb" config-ref="Teradata_Express_DataSource">
-            <db:sql ><![CDATA[INSERT INTO MULE.LOG_FAILED_IMPORTS (
+        <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="1d3a843f-a4ee-4e10-a8aa-c00ea7f3ae98">
+          <db:insert doc:name="Insert into log table" doc:id="a835bf70-f62a-4aac-b3fc-38377b110aba" config-ref="Teradata_Express_DataSource">
+            <db:sql><![CDATA[INSERT INTO MULE.LOG_FAILED_IMPORTS (
    topicKey
  , topicCreationTimestamp
  , topicPartition
@@ -451,14 +456,12 @@ VALUES
  , :mule_correlation_id
 )
 ;]]></db:sql>
-            <db:input-parameters ><![CDATA[#[payload.attributes]]]></db:input-parameters>
+            <db:input-parameters><![CDATA[#[payload.attributes]]]></db:input-parameters>
           </db:insert>
         </on-error-continue>
       </error-handler>
     </try>
-    <logger level="INFO" doc:name="Logger" doc:id="83729910-d787-44ed-9824-d175a670f324" message="Committing message."/>
-    <kafka:commit doc:name="quickstart-events" doc:id="ef520540-6948-40a6-9a0d-ab0964de5e89" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
-  </flow>
+  </sub-flow>
   <flow name="teradata-db-insert" doc:id="3526c0bd-7c2f-462d-b4fc-0eab18bf6c7e" >
     <db:insert doc:name="Insert into staging table" doc:id="d9e80e3f-df29-4720-8057-76f39e9cf380" config-ref="Teradata_Express_DataSource">
       <db:sql><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
@@ -489,15 +492,13 @@ VALUES
     </db:insert>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
-  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="stopped">
+  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="started">
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="79f0402d-b1ac-4a1c-9e64-9c766c0b8718" message="Starting batch consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
     <ee:transform doc:name="Prepare payload for database request" doc:id="f12237da-1585-40a4-b860-67e8bb696b55" >
       <ee:message >
-      </ee:message>
-      <ee:variables >
-        <ee:set-variable variableName="batchPayload" ><![CDATA[%dw 2.0
+        <ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 import divideBy from dw::core::Arrays
 import guardWithDefaultOutput as guard from myModules::teradata
@@ -527,21 +528,43 @@ var payloadValues = (payload.*payload default [] map (value, index) -> do {
     }
 })
 ---
-(payloadAttributes zip payloadValues) map (value) -> {
+((payloadAttributes zip payloadValues) map (value) -> {
     attributes: value.attributes[0],
     value: value.value[0]
-}]]></ee:set-variable>
+}) divideBy 100]]></ee:set-payload>
+      </ee:message>
+      <ee:variables >
       </ee:variables>
     </ee:transform>
-    <set-payload value="#[import divideBy from dw::core::Arrays --- vars.batchPayload.value divideBy 100]" doc:name="Set Payload" doc:id="ae6fda69-a34c-4b23-9e19-17b87879ee94" />
     <parallel-foreach doc:name="Parallel For Each" doc:id="9fed2681-8454-4c7f-b622-70914bbf6b82" >
-      <flow-ref doc:name="teradata-db-bulk-insert" doc:id="66f37849-fd76-40e7-923d-7023d0fcb916" name="teradata-db-bulk-insert"/>
+      <try doc:name="Try" doc:id="f555d107-0c71-40e6-88bf-fcda0fd2aa17" >
+        <flow-ref doc:name="teradata-db-bulk-insert" doc:id="66f37849-fd76-40e7-923d-7023d0fcb916" name="teradata-db-bulk-insert" />
+        <error-handler >
+          <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="dcdedd37-f397-4503-9e07-fd90234cee74" when="#[vars.errorStatusCode == 503]">
+            <logger level="INFO" doc:name="Logger" doc:id="d1af1224-aba9-4f9f-be84-2c3524338f7f" message="An irreproducible error occured, propagating error to parent flow."/>
+          </on-error-propagate>
+          <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="409b2644-c985-499e-a642-772279a9ddd7" >
+            <set-variable value="#[true]" doc:name="databaseRequestFailed" doc:id="61ea2d5c-3b95-486b-9dbc-eec02764c5a6" variableName="databaseRequestFailed"/>
+          </on-error-continue>
+        </error-handler>
+      </try>
+      <choice doc:name="Database request failed?" doc:id="1c323ea3-7b62-43b3-95d0-cbc0d7b43af5" >
+        <when expression="#[vars.databaseRequestFailed]">
+          <parallel-foreach doc:name="Parallel For Each" doc:id="b160b0e7-e4cf-420f-95d1-09cb04b8e47b" >
+            <flow-ref doc:name="try-teradata-db-request" doc:id="a056ea6c-7aa9-4c95-b9ee-87be6f88a4f7" name="try-teradata-db-request"/>
+          </parallel-foreach>
+        </when>
+        <otherwise >
+          <logger level="INFO" doc:name="Logger" doc:id="96d0e2b5-5080-49a0-bf28-aeb7053ad448" message="Bulk insert finished successfully."/>
+        </otherwise>
+      </choice>
     </parallel-foreach>
     <logger level="INFO" doc:name="Logger" doc:id="879ddb9a-cc05-4c87-a4ce-ae8ff0116321" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="7cdb938a-ceaf-422f-991f-8604e40adc45" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
   </flow>
   <flow name="teradata-db-bulk-insert" doc:id="8b6a32f7-f2b4-46d2-8610-1780de040434" >
     <db:bulk-insert doc:name="Insert into staging table" doc:id="7566347a-758f-4d8d-8051-df07d24707c1" config-ref="Teradata_Express_DataSource">
+      <db:bulk-input-parameters ><![CDATA[#[payload.value]]]></db:bulk-input-parameters>
       <db:sql><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
    orderNo
  , orderDate
