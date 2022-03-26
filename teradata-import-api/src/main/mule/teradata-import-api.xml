@@ -395,7 +395,7 @@ import * from dw::core::Strings
     </parallel-foreach>
     <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
   </flow>
-  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="stopped">
     <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="43f04ccf-aa59-4f70-87c8-ff1b3f9699a2" message="Starting consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="39f96406-9dac-44c9-b6c2-5b34be21e53b" variableName="consumerCommitKey"/>
@@ -425,8 +425,13 @@ var jsonVal = read(payload, "application/json")
 }]]></ee:set-payload>
       </ee:message>
     </ee:transform>
+    <flow-ref doc:name="teradata-db-insert" doc:id="bdbe4a64-ef75-4fb1-a5d9-9f5a4df3a9e9" name="teradata-db-insert"/>
+    <logger level="INFO" doc:name="Logger" doc:id="83729910-d787-44ed-9824-d175a670f324" message="Committing message."/>
+    <kafka:commit doc:name="quickstart-events" doc:id="ef520540-6948-40a6-9a0d-ab0964de5e89" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
+  </flow>
+  <flow name="teradata-db-insert" doc:id="3526c0bd-7c2f-462d-b4fc-0eab18bf6c7e" >
     <db:insert doc:name="Insert into staging table" doc:id="d9e80e3f-df29-4720-8057-76f39e9cf380" config-ref="Teradata_Express_DataSource">
-      <db:sql ><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
+      <db:sql><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
    orderNo
  , orderDate
  , customerNo
@@ -450,13 +455,11 @@ VALUES
  , 1
 )
 ;]]></db:sql>
-      <db:input-parameters ><![CDATA[#[payload.value]]]></db:input-parameters>
+      <db:input-parameters><![CDATA[#[payload.value]]]></db:input-parameters>
     </db:insert>
-    <logger level="INFO" doc:name="Logger" doc:id="83729910-d787-44ed-9824-d175a670f324" message="Committing message."/>
-    <kafka:commit doc:name="quickstart-events" doc:id="ef520540-6948-40a6-9a0d-ab0964de5e89" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
-  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="stopped">
+  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="started">
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="79f0402d-b1ac-4a1c-9e64-9c766c0b8718" message="Starting batch consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
@@ -486,7 +489,13 @@ import guardWithDefaultOutput as guard from myModules::teradata
       </ee:message>
     </ee:transform>
     <parallel-foreach doc:name="Parallel For Each" doc:id="9fed2681-8454-4c7f-b622-70914bbf6b82" >
-      <db:bulk-insert doc:name="Insert into staging table" doc:id="7566347a-758f-4d8d-8051-df07d24707c1" config-ref="Teradata_Express_DataSource">
+      <flow-ref doc:name="teradata-db-bulk-insert" doc:id="66f37849-fd76-40e7-923d-7023d0fcb916" name="teradata-db-bulk-insert"/>
+    </parallel-foreach>
+    <logger level="INFO" doc:name="Logger" doc:id="879ddb9a-cc05-4c87-a4ce-ae8ff0116321" message="Committing message."/>
+    <kafka:commit doc:name="quickstart-events" doc:id="7cdb938a-ceaf-422f-991f-8604e40adc45" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
+  </flow>
+  <flow name="teradata-db-bulk-insert" doc:id="8b6a32f7-f2b4-46d2-8610-1780de040434" >
+    <db:bulk-insert doc:name="Insert into staging table" doc:id="7566347a-758f-4d8d-8051-df07d24707c1" config-ref="Teradata_Express_DataSource">
       <db:sql><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
    orderNo
  , orderDate
@@ -512,9 +521,6 @@ VALUES
 )
 ;]]></db:sql>
     </db:bulk-insert>
-    </parallel-foreach>
-    <logger level="INFO" doc:name="Logger" doc:id="879ddb9a-cc05-4c87-a4ce-ae8ff0116321" message="Committing message."/>
-    <kafka:commit doc:name="quickstart-events" doc:id="7cdb938a-ceaf-422f-991f-8604e40adc45" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
   <error-handler name="teradata-db-error-handler" doc:id="445056de-97ff-4844-8e2e-abc389b4cdb5">
@@ -526,7 +532,7 @@ VALUES
       doc:id="4de6a422-1a1c-4cd7-87e0-3956ab68f00f" type="DB:QUERY_EXECUTION">
             <set-variable value='#[error.description contains /(\[Error 1338\]|\[Error 1339\])/]' doc:name="isTeradataBatchError" doc:id="46ad5336-ad5b-4a3e-bd7a-6e133521e1f2" variableName="isTeradataBatchError"/>
             <set-variable value="#[(&#10;   if (vars.isTeradataBatchError)&#10;   (error.exception..next filter (not (($.detailMessage contains /(\[Error 1338\]|\[Error 1339\])/) or ($.detailMessage == null))) distinctBy $)[0].detailMessage&#10;   else null&#10;) default error.description]" doc:name="teradataErrorMessage" doc:id="61f685d8-c2e5-4df0-8ccf-287075339ec8" variableName="teradataErrorMessage"/>
-            <flow-ref doc:name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="2e28abb9-f77b-4066-b471-d9edce73f9eb" name="teradata-set-http-status-and-error-message-for-query-execution-error" />
+            <flow-ref doc:name="teradata-set-error-status-code-and-error-message-for-query-execution-error" doc:id="2e28abb9-f77b-4066-b471-d9edce73f9eb" name="teradata-set-error-status-code-and-error-message-for-query-execution-error" />
     </on-error-propagate>
     <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
       doc:id="a288805b-d5ee-47fa-b9e3-401b58f4f080" type="MULE:COMPOSITE_ROUTING"
@@ -540,11 +546,11 @@ VALUES
             <set-variable value="#[(((error.errors filter ($.description contains /(\[Error 1338\]|\[Error 1339\])/))..next.detailMessage filter (not (($ contains /(\[Error 1338\]|\[Error 1339\])/) or ($ == null))) distinctBy $ default [] map {({teradataErrorMessage: $} ++ {isTeradataBatchError: true})})&#10;++&#10;(error.errors.*description filter (not ($ contains /(\[Error 1338\]|\[Error 1339\])/)) distinctBy $ default [] map {({teradataErrorMessage: $} ++ {isTeradataBatchError: false})}))&#10;minBy not ($.teradataErrorMessage contains /(\[Error 2631\]|\[Error 1095\]|\[Error 3134\])/)]" doc:name="teradataErrorObject" doc:id="a201b7fc-4d4b-4bab-86ee-cc3039e109e8" variableName="teradataErrorObject"/>
             <set-variable value="#[vars.teradataErrorObject.isTeradataBatchError]" doc:name="isTeradataBatchError" doc:id="f9393a7f-f297-41b2-8605-2010f6fe736b" variableName="isTeradataBatchError"/>
             <set-variable value="#[vars.teradataErrorObject.teradataErrorMessage]" doc:name="teradataErrorMessage" doc:id="3db3eb78-8975-4a28-940b-a1c547701586" variableName="teradataErrorMessage"/>
-            <flow-ref doc:name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="6c5a8989-85ed-4baf-a637-2c0bd9cbf84f" name="teradata-set-http-status-and-error-message-for-query-execution-error"/>
+            <flow-ref doc:name="teradata-set-error-status-code-and-error-message-for-query-execution-error" doc:id="6c5a8989-85ed-4baf-a637-2c0bd9cbf84f" name="teradata-set-error-status-code-and-error-message-for-query-execution-error"/>
     </on-error-propagate>
   </error-handler>
-    <sub-flow name="teradata-set-http-status-and-error-message-for-query-execution-error" doc:id="66710ac6-0a29-4f4c-b016-8bc9e21ede27" >
-        <set-variable value='#[vars.teradataErrorMessage match {&#10;   case errmsg if errmsg contains "[Error 2631]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 1095]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 3134]" -&gt; 503&#10;   else -&gt; 500&#10;}]' doc:name="httpStatus" doc:id="5cf6d545-4cff-4662-9a62-93f15cff42c5" variableName="httpStatus" />
+    <sub-flow name="teradata-set-error-status-code-and-error-message-for-query-execution-error" doc:id="66710ac6-0a29-4f4c-b016-8bc9e21ede27" >
+        <set-variable value='#[vars.teradataErrorMessage match {&#10;   case errmsg if errmsg contains "[Error 2631]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 1095]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 3134]" -&gt; 503&#10;   else -&gt; 500&#10;}]' doc:name="errorStatusCode" doc:id="5cf6d545-4cff-4662-9a62-93f15cff42c5" variableName="errorStatusCode" />
         <set-variable value='#[if (vars.isTeradataBatchError)&#10;("Teradata database batch error occured, root cause: "&#10;   ++ (&#10;       if (not (vars.teradataErrorMessage contains /(\[Error 1338\]|\[Error 1339\])/)) vars.teradataErrorMessage&#10;       else "Not found"&#10;       )&#10;)&#10;else "Teradata database error occured, please refer to system log for further error details."]' doc:name="logErrorMessage" doc:id="36037a67-db74-4f29-9a76-0d2bb619ff5f" variableName="logErrorMessage" />
         <logger level="INFO" doc:name="logErrorMessage" doc:id="43c02a1e-c01b-42f1-b0bf-9cb24dda88ec" message='#[vars.logErrorMessage]'/>
     </sub-flow>

@@ -1,0 +1,12 @@
+%dw 2.0
+
+type auto_8b6a32f7_f2b4_46d2_8610_1780de040434_Input_Variables_rootMessage = {|
+  payload: Any, 
+  attributes: com_mulesoft_connectors_kafka_api_source_ConsumerContext
+|} {"typeId": "org.mule.runtime.api.message.Message"}
+type com_mulesoft_connectors_kafka_api_source_ConsumerContext = {| consumerCommitKey?: String |} {"typeAlias": "ConsumerContext",
+"class": "com.mulesoft.connectors.kafka.api.source.ConsumerContext",
+"typeId": "com.mulesoft.connectors.kafka.api.source.ConsumerContext"}
+
+
+
