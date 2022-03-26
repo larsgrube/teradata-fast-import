@@ -374,13 +374,13 @@ VALUES
 output application/json
 import * from dw::core::Strings
 ---
-(1 to attributes.headers.payloadSize) as Array map (value) -> {
+(1 to (attributes.headers.payloadSize default 1)) as Array map (value) -> {
     key: uuid(),
     value: {
         "orderNo": randomInt(899999999) + 100000000,
         "orderDate": ((randomInt(24) + 2000) ++ "-" ++ ((randomInt(11) + 1) as String {format: "00"}) ++ "-" ++ ((randomInt(27) + 1) as String {format: "00"})) as Date + |P3D|,
         "customerNo": randomInt(899999999) + 100000000,
-        "itemNo": randomInt(899999999) + 100000000,
+        "itemNo": if (value == 10) null else randomInt(899999999) + 100000000,
         "itemDesc": if ((value mod 2) != 0) "Hoodie" else "T-Shirt",
         "orderState": if ((value mod 2) != 0) "In Progress" else "Shipped",
         "lastUpdatedTS": ((randomInt(24) + 2000) ++ "-" ++ ((randomInt(11) + 1) as String {format: "00"}) ++ "-" ++ ((randomInt(27) + 1) as String {format: "00"})) as Date + |P3D| ++ " " ++ randomInt(23) as String {format: "00"} ++ ":" ++ randomInt(59) as String {format: "00"} ++ ":" ++ randomInt(23) as String {format: "00"} ++ "." ++ randomInt(999) as String {format: "000"}
@@ -395,7 +395,7 @@ import * from dw::core::Strings
     </parallel-foreach>
     <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
   </flow>
-  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="stopped">
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
     <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="43f04ccf-aa59-4f70-87c8-ff1b3f9699a2" message="Starting consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="39f96406-9dac-44c9-b6c2-5b34be21e53b" variableName="consumerCommitKey"/>
@@ -410,7 +410,8 @@ var jsonVal = read(payload, "application/json")
         key: attributes.key as String replace /\"/ with "",
         creationTimestamp: attributes.creationTimestamp,
         partition: attributes.partition,
-        offset: attributes.offset
+        offset: attributes.offset,
+        mule_correlation_id: correlationId
     },
     value: {
         orderNo: jsonVal.orderNo,
@@ -425,7 +426,35 @@ var jsonVal = read(payload, "application/json")
 }]]></ee:set-payload>
       </ee:message>
     </ee:transform>
-    <flow-ref doc:name="teradata-db-insert" doc:id="bdbe4a64-ef75-4fb1-a5d9-9f5a4df3a9e9" name="teradata-db-insert"/>
+    <try doc:name="Try" doc:id="8c87870c-0680-4d21-8036-215d4708ed8c" >
+      <flow-ref doc:name="teradata-db-insert" doc:id="bdbe4a64-ef75-4fb1-a5d9-9f5a4df3a9e9" name="teradata-db-insert" />
+      <error-handler >
+        <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6a1527f2-a740-4d6b-8935-73c95b045aeb" when="#[vars.errorStatusCode == 503]">
+          <logger level="INFO" doc:name="Logger" doc:id="7315a29b-dda6-49d7-b40c-6f7caab33f8f" message="An irreproducible error occured, propagating error to parent flow."/>
+        </on-error-propagate>
+        <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="87f87df4-5368-4b4f-90a0-44d13a384caf" >
+          <db:insert doc:name="Insert into log table" doc:id="0b047e27-8919-43d6-9bb1-29b64d2fe5eb" config-ref="Teradata_Express_DataSource">
+            <db:sql ><![CDATA[INSERT INTO MULE.LOG_FAILED_IMPORTS (
+   topicKey
+ , topicCreationTimestamp
+ , topicPartition
+ , topicOffset
+ , mule_correlation_id
+)
+VALUES
+(
+   :key
+ , :creationTimestamp
+ , :partition
+ , :offset
+ , :mule_correlation_id
+)
+;]]></db:sql>
+            <db:input-parameters ><![CDATA[#[payload.attributes]]]></db:input-parameters>
+          </db:insert>
+        </on-error-continue>
+      </error-handler>
+    </try>
     <logger level="INFO" doc:name="Logger" doc:id="83729910-d787-44ed-9824-d175a670f324" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="ef520540-6948-40a6-9a0d-ab0964de5e89" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
   </flow>
@@ -459,7 +488,7 @@ VALUES
     </db:insert>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
-  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="started">
+  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="stopped">
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="79f0402d-b1ac-4a1c-9e64-9c766c0b8718" message="Starting batch consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
@@ -526,7 +555,7 @@ VALUES
   <error-handler name="teradata-db-error-handler" doc:id="445056de-97ff-4844-8e2e-abc389b4cdb5">
     <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
       doc:id="128cafdd-f6b8-43a7-8c0f-29b6a0abecf6" type="DB:CONNECTIVITY">
-      <set-variable value="503" variableName="errorStatusCode" doc:name="Set Status Code to 503" />
+      <set-variable value="#[503]" variableName="errorStatusCode" doc:name="Set Status Code to 503" />
     </on-error-propagate>
     <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
       doc:id="4de6a422-1a1c-4cd7-87e0-3956ab68f00f" type="DB:QUERY_EXECUTION">
@@ -537,7 +566,7 @@ VALUES
     <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
       doc:id="a288805b-d5ee-47fa-b9e3-401b58f4f080" type="MULE:COMPOSITE_ROUTING"
       when='#[(error.errors ++ (flatten(error.errors.*errors) default [])).*errorType.*asString contains "DB:CONNECTIVITY"]'>
-      <set-variable value="503" doc:name="Set Status Code to 503"
+      <set-variable value="#[503]" doc:name="Set Status Code to 503"
         doc:id="0c21dd2d-a6fa-4d9a-9e22-519fcd04d435" variableName="errorStatusCode" />
     </on-error-propagate>
     <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
