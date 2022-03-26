@@ -457,10 +457,12 @@ VALUES
         <ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 import divideBy from dw::core::Arrays
+import guardWithDefaultOutput as guard from myModules::teradata
 ---
-(payload.*payload map (value, index) -> do {
-    var jsonVal = read(value, "application/json")
+(payload.*payload default [] map (value, index) -> do {
+    var jsonVal = guard(() -> read(value, "application/json"))
     ---
+    if (jsonVal is Null) null else
     {
         orderNo: jsonVal.orderNo,
         orderDate: jsonVal.orderDate,
@@ -472,7 +474,7 @@ import divideBy from dw::core::Arrays
         mule_correlation_id: correlationId,
         row_number_by_payload: index 
     }
-}) divideBy 100]]></ee:set-payload>
+}) filter not ($ is Null) divideBy 100]]></ee:set-payload>
       </ee:message>
     </ee:transform>
     <parallel-foreach doc:name="Parallel For Each" doc:id="9fed2681-8454-4c7f-b622-70914bbf6b82" >

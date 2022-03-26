@@ -1,5 +1,10 @@
 %dw 2.0
 
+fun guardWithDefaultOutput (fn, defaultOutput = null) = dw::Runtime::try(fn) match {
+  case tr if (tr.success) -> tr.result
+  else -> defaultOutput
+}
+
 fun createMultiStatementRequestFromArray(inPayload: Array, targetDatabase: String, targetTable: String, transactionId: String) =
 (inPayload map (payload01, indexOfPayload01) -> {
 	"sqlRequest": using (parameterList = payload01 pluck $$ map (payload02, indexOfPayload02) -> {
