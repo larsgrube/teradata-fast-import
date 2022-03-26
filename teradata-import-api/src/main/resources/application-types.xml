@@ -267,4 +267,5 @@ type auto_8b6a32f7_f2b4_46d2_8610_1780de040434_Output_Variables_consumerCommitKe
       </types:output-event>
     </types:processor-declaration>
   </types:enrichment>
+  <types:enrichment select="#f12237da-1585-40a4-b860-67e8bb696b55"/>
 </types:mule>

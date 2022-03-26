@@ -403,7 +403,8 @@ import * from dw::core::Strings
       <ee:message >
         <ee:set-payload ><![CDATA[%dw 2.0
 output application/json
-var jsonVal = read(payload, "application/json")
+import guardWithDefaultOutput as guard from myModules::teradata
+var jsonVal = guard(() -> read(payload, "application/json"))
 ---
 {
     attributes: {
@@ -413,7 +414,7 @@ var jsonVal = read(payload, "application/json")
         offset: attributes.offset,
         mule_correlation_id: correlationId
     },
-    value: {
+    value: if (jsonVal is Null) null else {
         orderNo: jsonVal.orderNo,
         orderDate: jsonVal.orderDate,
         customerNo: jsonVal.customerNo,
@@ -494,15 +495,25 @@ VALUES
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
     <ee:transform doc:name="Prepare payload for database request" doc:id="f12237da-1585-40a4-b860-67e8bb696b55" >
       <ee:message >
-        <ee:set-payload ><![CDATA[%dw 2.0
+      </ee:message>
+      <ee:variables >
+        <ee:set-variable variableName="batchPayload" ><![CDATA[%dw 2.0
 output application/json
 import divideBy from dw::core::Arrays
 import guardWithDefaultOutput as guard from myModules::teradata
----
-(payload.*payload default [] map (value, index) -> do {
+var payloadAttributes = payload.*attributes default [] map (value) -> {
+    attributes: {
+        key: value.key as String replace /\"/ with "",
+        creationTimestamp: value.creationTimestamp,
+        partition: value.partition,
+        offset: value.offset,
+        mule_correlation_id: correlationId
+    }
+}
+var payloadValues = (payload.*payload default [] map (value, index) -> do {
     var jsonVal = guard(() -> read(value, "application/json"))
     ---
-    if (jsonVal is Null) null else
+    value: if (jsonVal is Null) null else
     {
         orderNo: jsonVal.orderNo,
         orderDate: jsonVal.orderDate,
@@ -514,9 +525,15 @@ import guardWithDefaultOutput as guard from myModules::teradata
         mule_correlation_id: correlationId,
         row_number_by_payload: index 
     }
-}) filter not ($ is Null) divideBy 100]]></ee:set-payload>
-      </ee:message>
+})
+---
+(payloadAttributes zip payloadValues) map (value) -> {
+    attributes: value.attributes[0],
+    value: value.value[0]
+}]]></ee:set-variable>
+      </ee:variables>
     </ee:transform>
+    <set-payload value="#[import divideBy from dw::core::Arrays --- vars.batchPayload.value divideBy 100]" doc:name="Set Payload" doc:id="ae6fda69-a34c-4b23-9e19-17b87879ee94" />
     <parallel-foreach doc:name="Parallel For Each" doc:id="9fed2681-8454-4c7f-b622-70914bbf6b82" >
       <flow-ref doc:name="teradata-db-bulk-insert" doc:id="66f37849-fd76-40e7-923d-7023d0fcb916" name="teradata-db-bulk-insert"/>
     </parallel-foreach>
