@@ -403,7 +403,7 @@ import * from dw::core::Strings
       <ee:message >
         <ee:set-payload ><![CDATA[%dw 2.0
 output application/json
-import guardWithDefaultOutput as guard from myModules::teradata
+import guardWithDefaultOutput as guard from myModules::guard
 var jsonVal = guard(() -> read(payload, "application/json"))
 ---
 {
@@ -501,7 +501,7 @@ VALUES
         <ee:set-payload ><![CDATA[%dw 2.0
 output application/json
 import divideBy from dw::core::Arrays
-import guardWithDefaultOutput as guard from myModules::teradata
+import guardWithDefaultOutput as guard from myModules::guard
 var payloadAttributes = payload.*attributes default [] map (value) -> {
     attributes: {
         key: value.key as String replace /\"/ with "",
