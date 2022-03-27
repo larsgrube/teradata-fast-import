@@ -1,9 +1,9 @@
 db:
-  IP: 192.168.0.10
+  IP: 192.168.2.105
   user: maxthemule
   password: teradatarocks  
   targetDatabase: "MULE"
   targetTable: "FAST_IMPORT"
 kafka:
-  bootstrapServer: localhost:9092
+  bootstrapServer: 172.29.72.166:9092
   topic: quickstart-events

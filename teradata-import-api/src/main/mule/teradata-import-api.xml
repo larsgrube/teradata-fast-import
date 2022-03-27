@@ -32,7 +32,7 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
     </kafka:producer-plaintext-connection>
   </kafka:producer-config>
   <kafka:consumer-config name="Apache_Kafka_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="d8bf604e-0c44-42b9-9b16-1497ae76a46a" ackMode="MANUAL">
-    <kafka:consumer-plaintext-connection >
+    <kafka:consumer-plaintext-connection groupId="teradata-consumer-group">
       <reconnection >
         <reconnect-forever />
       </reconnection>
@@ -45,7 +45,7 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
     </kafka:consumer-plaintext-connection>
   </kafka:consumer-config>
   <kafka:consumer-config name="Apache_Kafka_Batch_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="7738c907-fc3a-4874-8924-81017f2c2a8d" ackMode="MANUAL">
-    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="400" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="20" fetchMaximumWaitTimeoutUnit="SECONDS" sessionTimeout="30" recordLimit="10000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES">
+    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="400" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="20" fetchMaximumWaitTimeoutUnit="SECONDS" sessionTimeout="30" recordLimit="10000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES" groupId="teradata-consumer-group">
       <reconnection >
         <reconnect-forever />
       </reconnection>
@@ -395,7 +395,7 @@ import * from dw::core::Strings
     </parallel-foreach>
     <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
   </flow>
-  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="stopped">
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
     <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="43f04ccf-aa59-4f70-87c8-ff1b3f9699a2" message="Starting consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="39f96406-9dac-44c9-b6c2-5b34be21e53b" variableName="consumerCommitKey"/>
@@ -492,7 +492,7 @@ VALUES
     </db:insert>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
-  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="started">
+  <flow name="batch-consume-from-kafka-topic" doc:id="93a23df0-3f6f-444c-8af5-617b31a60698" initialState="stopped">
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="35eb6661-7b72-44a2-98e1-23cf12d72a45" config-ref="Apache_Kafka_Batch_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="79f0402d-b1ac-4a1c-9e64-9c766c0b8718" message="Starting batch consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="84bd138e-17b5-4e3f-9a03-b046cc40cce3" variableName="consumerCommitKey"/>
