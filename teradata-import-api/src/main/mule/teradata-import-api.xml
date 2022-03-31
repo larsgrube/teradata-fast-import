@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
-  xmlns:spring="http://www.mulesoft.org/schema/mule/spring" xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti"
-  xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
-  xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns="http://www.mulesoft.org/schema/mule/core"
-  xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
-  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+<mule xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+  xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka" xmlns:spring="http://www.mulesoft.org/schema/mule/spring"
+  xmlns:bti="http://www.mulesoft.org/schema/mule/ee/bti" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+  xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+  xmlns="http://www.mulesoft.org/schema/mule/core"
+  xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
 http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
 http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/ee/bti http://www.mulesoft.org/schema/mule/ee/bti/current/mule-bti-ee.xsd
 http://www.mulesoft.org/schema/mule/spring http://www.mulesoft.org/schema/mule/spring/current/mule-spring.xsd
-http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd">
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd">
   <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config"
     doc:id="493d056c-9083-4655-a95d-4ab1dcdc7fc4">
     <http:listener-connection host="0.0.0.0" port="8081" />
@@ -45,7 +46,7 @@ http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/ka
     </kafka:consumer-plaintext-connection>
   </kafka:consumer-config>
   <kafka:consumer-config name="Apache_Kafka_Batch_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="7738c907-fc3a-4874-8924-81017f2c2a8d" ackMode="MANUAL">
-    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="400" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="20" fetchMaximumWaitTimeoutUnit="SECONDS" sessionTimeout="30" recordLimit="10000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES" groupId="teradata-consumer-group">
+    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="400" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="20" fetchMaximumWaitTimeoutUnit="SECONDS" sessionTimeout="30" recordLimit="10000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES" groupId="teradata-batch-consumer-group">
       <reconnection >
         <reconnect-forever />
       </reconnection>
@@ -366,8 +367,26 @@ VALUES
     <flow-ref doc:name="regular-import-db-request" doc:id="ce87789d-ac42-49a1-b702-041e80443ca5" name="regular-import-db-request"/>
     <error-handler ref="teradata-db-error-handler" />
   </flow>
+  <flow name="change-consumer-state" doc:id="44dff8b3-301f-4c48-935e-cd8a03a077b5" >
+    <http:listener doc:name="HTTP POST /change-consumer-state" doc:id="a3169340-ab4b-48c6-afa5-95d0e095b378" config-ref="HTTP_Listener_config" path="/change-consumer-state" allowedMethods="POST"/>
+    <scripting:execute doc:name="Execute" doc:id="2006f336-848b-459d-8bbc-414c51cf4a6b" engine="Groovy">
+      <scripting:code ><![CDATA[flow = registry.lookupByName('consume-from-kafka-topic').get();
+if (flow.isStarted())
+flow.stop()
+else flow.start()]]></scripting:code>
+    </scripting:execute>
+  </flow>
+  <flow name="change-batch-consumer-state" doc:id="842e1725-6c88-4f2d-a286-a206625717a6" >
+    <http:listener doc:name="HTTP POST /change-batch-consumer-state" doc:id="4f697e3d-f92b-4ac7-9b17-1b9877696df3" config-ref="HTTP_Listener_config" path="/change-batch-consumer-state" allowedMethods="POST"/>
+    <scripting:execute doc:name="Execute" doc:id="4914b816-c0bb-445c-a612-e8fa58f61828" engine="Groovy">
+      <scripting:code ><![CDATA[flow = registry.lookupByName('batch-consume-from-kafka-topic').get();
+if (flow.isStarted())
+flow.stop()
+else flow.start()]]></scripting:code>
+    </scripting:execute>
+  </flow>
   <flow name="publish-to-kafka-topic" doc:id="cf43b9c0-4964-4f5a-97f5-aec0a81c00a4" >
-    <http:listener doc:name="HTTP POST /publish-to-kafka-topic" doc:id="3b1d0e22-bf96-4e9f-a775-33e0f44d0cf7" config-ref="HTTP_Listener_config" path="/publish-to-kafka-topic"/>
+    <http:listener doc:name="HTTP POST /publish-to-kafka-topic" doc:id="3b1d0e22-bf96-4e9f-a775-33e0f44d0cf7" config-ref="HTTP_Listener_config" path="/publish-to-kafka-topic" allowedMethods="POST"/>
     <ee:transform doc:name="Generate random payload" doc:id="18281eea-e27f-47a1-9e8b-f2331f451395" >
       <ee:message >
         <ee:set-payload ><![CDATA[%dw 2.0
@@ -395,7 +414,7 @@ import * from dw::core::Strings
     </parallel-foreach>
     <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="c2d213fc-700c-4a9b-a557-609cde3e2b36" />
   </flow>
-  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="started">
+  <flow name="consume-from-kafka-topic" doc:id="90f39bc9-8a36-4fc2-b9e1-36371b13ed47" initialState="stopped">
     <kafka:message-listener doc:name="quickstart-events" doc:id="968e6f1b-2c36-4ad5-83cd-14a01688fe95" config-ref="Apache_Kafka_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="43f04ccf-aa59-4f70-87c8-ff1b3f9699a2" message="Starting consumer."/>
     <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="39f96406-9dac-44c9-b6c2-5b34be21e53b" variableName="consumerCommitKey"/>
