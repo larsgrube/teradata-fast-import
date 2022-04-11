@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd">
+  <error-handler name="teradata-db-error-handler" doc:id="0b62776b-b4be-4ced-8871-bf67ef2b6e2f">
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="cbe97cd2-14a5-40d2-9053-07d44bc6b0d1" type="DB:CONNECTIVITY">
+      <set-variable value="#[503]" variableName="errorStatusCode" doc:name="Set Status Code to 503" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="c199161a-a6e1-4207-b024-c15284e61994" type="DB:QUERY_EXECUTION">
+            <set-variable value='#[error.description contains /(\[Error 1338\]|\[Error 1339\])/]' doc:name="isTeradataBatchError" doc:id="b09ec6a7-03d6-446b-9786-a098f07235db" variableName="isTeradataBatchError"/>
+            <set-variable value="#[(&#10;   if (vars.isTeradataBatchError)&#10;   (error.exception..next filter (not (($.detailMessage contains /(\[Error 1338\]|\[Error 1339\])/) or ($.detailMessage == null))) distinctBy $)[0].detailMessage&#10;   else null&#10;) default error.description]" doc:name="teradataErrorMessage" doc:id="daea8d5a-52e9-4641-a32b-e629dfd4c952" variableName="teradataErrorMessage"/>
+            <flow-ref doc:name="teradata-set-error-status-code-and-error-message-for-query-execution-error" doc:id="6da37871-efa7-421b-af58-161b4c6c952d" name="teradata-set-error-status-code-and-error-message-for-query-execution-error" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="b0dc1cfd-47b8-4342-a3ec-ee83dfd3ccd0" type="MULE:COMPOSITE_ROUTING"
+      when='#[(error.errors ++ (flatten(error.errors.*errors) default [])).*errorType.*asString contains "DB:CONNECTIVITY"]'>
+      <set-variable value="#[503]" doc:name="Set Status Code to 503"
+        doc:id="11e77d52-c9cf-45a3-bdc8-1b5808efb6d9" variableName="errorStatusCode" />
+    </on-error-propagate>
+    <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate"
+      doc:id="1b713b65-ea64-4607-bbb4-fb377d2d9775" type="MULE:COMPOSITE_ROUTING"
+      when='#[(error.errors ++ (flatten(error.errors.*errors) default [])).*errorType.*asString contains "DB:QUERY_EXECUTION"]'>
+            <set-variable value="#[(((error.errors filter ($.description contains /(\[Error 1338\]|\[Error 1339\])/))..next.detailMessage filter (not (($ contains /(\[Error 1338\]|\[Error 1339\])/) or ($ == null))) distinctBy $ default [] map {({teradataErrorMessage: $} ++ {isTeradataBatchError: true})})&#10;++&#10;(error.errors.*description filter (not ($ contains /(\[Error 1338\]|\[Error 1339\])/)) distinctBy $ default [] map {({teradataErrorMessage: $} ++ {isTeradataBatchError: false})}))&#10;minBy not ($.teradataErrorMessage contains /(\[Error 2631\]|\[Error 1095\]|\[Error 3134\])/)]" doc:name="teradataErrorObject" doc:id="6ba19de2-f1e5-45a7-8674-a764f9237a99" variableName="teradataErrorObject"/>
+            <set-variable value="#[vars.teradataErrorObject.isTeradataBatchError]" doc:name="isTeradataBatchError" doc:id="eb05aa8d-7e0b-4c13-8ad5-e63a95f49f74" variableName="isTeradataBatchError"/>
+            <set-variable value="#[vars.teradataErrorObject.teradataErrorMessage]" doc:name="teradataErrorMessage" doc:id="bd36330e-d1d9-4e4b-9e2b-23438c21780a" variableName="teradataErrorMessage"/>
+            <flow-ref doc:name="teradata-set-error-status-code-and-error-message-for-query-execution-error" doc:id="673f6e58-b59c-4123-bf15-8489caa26b5f" name="teradata-set-error-status-code-and-error-message-for-query-execution-error"/>
+    </on-error-propagate>
+  </error-handler>
+    <sub-flow name="teradata-set-error-status-code-and-error-message-for-query-execution-error" doc:id="402cc319-5a4c-41db-a8fd-66db84eb7916" >
+        <set-variable value='#[vars.teradataErrorMessage match {&#10;   case errmsg if errmsg contains "[Error 2631]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 1095]" -&gt; 503&#10;   case errmsg if errmsg contains "[Error 3134]" -&gt; 503&#10;   else -&gt; 500&#10;}]' doc:name="errorStatusCode" doc:id="bf7b6d7f-0bd4-4f9f-9189-ed4f25623845" variableName="errorStatusCode" />
+        <set-variable value='#[if (vars.isTeradataBatchError)&#10;("Teradata database batch error occured, root cause: "&#10;   ++ (&#10;       if (not (vars.teradataErrorMessage contains /(\[Error 1338\]|\[Error 1339\])/)) vars.teradataErrorMessage&#10;       else "Not found"&#10;       )&#10;)&#10;else "Teradata database error occured, please refer to system log for further error details."]' doc:name="logErrorMessage" doc:id="8bf98d7d-9e7b-436c-875d-2f03a1caa60a" variableName="logErrorMessage" />
+        <logger level="INFO" doc:name="logErrorMessage" doc:id="f9cbad61-0243-48b2-ab9a-4d219ee5af25" message='#[vars.logErrorMessage]'/>
+    </sub-flow>
+</mule>

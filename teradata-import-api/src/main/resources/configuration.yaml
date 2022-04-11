@@ -5,5 +5,5 @@ db:
   targetDatabase: "MULE"
   targetTable: "FAST_IMPORT"
 kafka:
-  bootstrapServer: 172.29.72.166:9092
+  bootstrapServer: 172.30.71.233:9092
   topic: quickstart-events

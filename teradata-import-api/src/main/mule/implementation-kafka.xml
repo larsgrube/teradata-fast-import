@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka" xmlns:scripting="http://www.mulesoft.org/schema/mule/scripting"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/scripting http://www.mulesoft.org/schema/mule/scripting/current/mule-scripting.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd">
+  <flow name="change-consumer-state" doc:id="4407a016-03d1-437b-890c-355549d0bf4a" >
+    <http:listener doc:name="HTTP POST /change-consumer-state" doc:id="1fa8124c-2606-4fdc-a6d6-0adbb5e61055" config-ref="HTTP_Listener_config" path="/change-consumer-state" allowedMethods="POST"/>
+    <scripting:execute doc:name="Execute" doc:id="791c67d5-3cd7-402c-9326-322efa77693b" engine="Groovy">
+      <scripting:code ><![CDATA[flow = registry.lookupByName('consume-from-kafka-topic').get();
+if (flow.isStarted())
+flow.stop()
+else flow.start()]]></scripting:code>
+    </scripting:execute>
+  </flow>
+  <flow name="change-batch-consumer-state" doc:id="850cff31-ba09-49f1-aa10-7d504f7642a8" >
+    <http:listener doc:name="HTTP POST /change-batch-consumer-state" doc:id="918e068c-e709-48c7-b65d-fc0712ff95f8" config-ref="HTTP_Listener_config" path="/change-batch-consumer-state" allowedMethods="POST"/>
+    <scripting:execute doc:name="Execute" doc:id="90aa3c72-3c07-47ea-9ffa-e63a21973f67" engine="Groovy">
+      <scripting:code ><![CDATA[flow = registry.lookupByName('batch-consume-from-kafka-topic').get();
+if (flow.isStarted())
+flow.stop()
+else flow.start()]]></scripting:code>
+    </scripting:execute>
+  </flow>
+  <flow name="publish-to-kafka-topic" doc:id="4d6ef4e4-492f-4d5c-8807-ab8845b8d66b" >
+    <http:listener doc:name="HTTP POST /publish-to-kafka-topic" doc:id="f8444570-220f-4762-a625-56a42f611745" config-ref="HTTP_Listener_config" path="/publish-to-kafka-topic" allowedMethods="POST"/>
+    <set-variable value="#[attributes.headers.payloadSize]" doc:name="payloadSize" doc:id="999b3895-99c4-4c8c-91e7-aee13e29c2dd" variableName="payloadSize"/>
+    <set-variable value="#[attributes.headers.includeNullValues as Boolean default false]" doc:name="includeNullValues" doc:id="2ee733ed-978e-43d1-a319-a81e5fc5954f" variableName="includeNullValues"/>
+    <ee:transform doc:name="Generate random payload" doc:id="7ce51396-fd90-43f5-a177-45fa2df8adb5" >
+      <ee:message >
+        <ee:set-payload resource="dw/generate-random-payload.dwl" />
+      
+</ee:message>
+    </ee:transform>
+    <parallel-foreach doc:name="Parallel For Each" doc:id="5fc1239c-19b4-444d-b7f0-c9c2441664a0" >
+      <kafka:publish doc:name="quickstart-events" doc:id="cd15cbeb-6172-4a25-ad7c-3b60b23a8a33" config-ref="Apache_Kafka_Producer_configuration" topic="quickstart-events" key="#[payload.key]">
+      <kafka:message><![CDATA[#[payload.value]]]></kafka:message>
+    </kafka:publish>
+    </parallel-foreach>
+    <set-payload value="#[output application/json --- payload]" doc:name="to JSON" doc:id="52146629-117b-4091-9442-259b3767c433" />
+  </flow>
+  <flow name="consume-from-kafka-topic" doc:id="c01dda83-b32e-4c7e-9de3-55d4817fcf44" initialState="stopped">
+    <kafka:message-listener doc:name="quickstart-events" doc:id="34088102-ef48-401a-a0bb-869c85b5b425" config-ref="Apache_Kafka_Consumer_configuration" parallelConsumersAmount="3"/>
+    <logger level="INFO" doc:name="Logger" doc:id="cf1f9bb3-1fa8-4c52-a482-6d5899bd4a6f" message="Starting consumer."/>
+    <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="82f424a4-fdbb-4db4-a989-b7aac9423351" variableName="consumerCommitKey"/>
+    <ee:transform doc:name="Prepare payload for database request" doc:id="d956844e-a782-4752-9784-bd216a04aea4" >
+      <ee:message >
+        <ee:set-payload resource="dw/prepare-payload-for-database-request.dwl" />
+      
+</ee:message>
+    </ee:transform>
+    <flow-ref doc:name="try-teradata-db-request" doc:id="2924772b-5237-4d27-99f9-eace31734858" name="try-teradata-db-request" />
+    <logger level="INFO" doc:name="Logger" doc:id="5932cc33-d9ab-403f-84eb-9a142e2c0ddd" message="Committing message."/>
+    <kafka:commit doc:name="quickstart-events" doc:id="8050f824-921a-4f5c-93e3-212119e95161" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
+  </flow>
+  <sub-flow name="try-teradata-db-request" doc:id="3cd5c957-04b0-49a1-8a5a-5b684bfd579c">
+    <try doc:name="Try" doc:id="648a2d08-829a-4099-be2e-c38776fe5a8e">
+      <flow-ref doc:name="teradata-db-insert" doc:id="0a693391-7083-4494-8d4d-f9bb12760f18" name="teradata-db-insert" />
+      <error-handler>
+        <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5786dc63-7e2a-4caa-bd53-212365d69851" when="#[vars.errorStatusCode == 503]">
+          <logger level="INFO" doc:name="Logger" doc:id="a7935704-0798-4296-97ec-2d93d184474b" message="An irreproducible error occured, propagating error to parent flow." />
+        </on-error-propagate>
+        <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="94fdcc1d-6c1a-44af-b573-ad372ea70e5d">
+          <flow-ref doc:name="teradata-db-error-insert" doc:id="35ed045e-4a75-4231-98a8-08d6aad7ec08" name="teradata-db-error-insert" />
+
+        </on-error-continue>
+      </error-handler>
+    </try>
+  </sub-flow>
+  <flow name="batch-consume-from-kafka-topic" doc:id="87a1314c-049c-4e4d-b410-da2b47b0f99e" initialState="stopped">
+    <kafka:batch-message-listener doc:name="quickstart-events" doc:id="68885f30-0390-47ba-ac60-1f8538da0fdf" config-ref="Apache_Kafka_Batch_Consumer_configuration" parallelConsumersAmount="3"/>
+    <logger level="INFO" doc:name="Logger" doc:id="1d4a6a0d-c806-4958-b874-6b138867704a" message="Starting batch consumer."/>
+    <set-variable value="#[attributes.consumerCommitKey]" doc:name="consumerCommitKey" doc:id="45b629f9-d6d2-4310-b667-1450996efbb0" variableName="consumerCommitKey"/>
+    <ee:transform doc:name="Extract payload from batch message" doc:id="86769f69-d09d-4f1a-b5db-16fe8ba7cd4f" >
+      <ee:message >
+      </ee:message>
+      <ee:variables >
+        <ee:set-variable resource="dw/extract-payload-from-batch-message.dwl" variableName="batchMessagePayload" />
+
+      </ee:variables>
+    </ee:transform>
+    <set-payload value="#[vars.batchMessagePayload filter ($.value is Null)]" doc:name="filtered by null values" doc:id="d81aeffc-5a94-469f-8b8e-f4b036d10199" />
+    <choice doc:name="Null values found?" doc:id="bcfc8b29-98fa-4a20-9533-a902e5ffb6bc" >
+      <when expression="#[not (isEmpty(payload))]">
+        <parallel-foreach doc:name="Parallel For Each" doc:id="3b92c927-589f-4975-bd8b-014a88d1b9f8" >
+          <flow-ref doc:name="teradata-db-error-insert" doc:id="dead5c56-d42b-41a7-8c2f-49138b322524" name="teradata-db-error-insert"/>
+        </parallel-foreach>
+      </when>
+      <otherwise >
+        <logger level="INFO" doc:name="Logger" doc:id="e4dcc901-e5b4-4623-aa97-6138119c24b1" message="No null values found."/>
+      </otherwise>
+    </choice>
+    <ee:transform doc:name="Prepare payload for database bulk request" doc:id="bb8c44d9-3172-4a43-b710-515e4d5b5e17" >
+      <ee:message >
+        <ee:set-payload resource="dw/prepare-payload-for-database-bulk-request.dwl" />
+      </ee:message>
+    </ee:transform>
+    <parallel-foreach doc:name="Parallel For Each" doc:id="0e018776-7a4a-4189-9381-341368ce7dbf" >
+      <try doc:name="Try" doc:id="4ab399ab-6743-4ef7-b2c1-424b235c210c" >
+        <flow-ref doc:name="teradata-db-bulk-insert" doc:id="4c95115b-fa96-457e-aee4-43d117316c23" name="teradata-db-bulk-insert" />
+        <error-handler >
+          <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b73a08cc-53c0-4e9f-98d8-980d0b99ab4d" when="#[vars.errorStatusCode == 503]">
+            <logger level="INFO" doc:name="Logger" doc:id="dc6de3e2-6475-443f-880a-19b36499aa3b" message="An irreproducible error occured, propagating error to parent flow."/>
+          </on-error-propagate>
+          <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="db047f99-5e93-4da9-8f2a-202b275505e5" >
+            <set-variable value="#[true]" doc:name="databaseRequestFailed" doc:id="47b93d5b-57c1-4bc0-92f2-48092d855027" variableName="databaseRequestFailed"/>
+          </on-error-continue>
+        </error-handler>
+      </try>
+      <choice doc:name="Database request failed?" doc:id="d28f0202-eee6-4ad1-a09d-f50fb14344ec" >
+        <when expression="#[vars.databaseRequestFailed]">
+          <parallel-foreach doc:name="Parallel For Each" doc:id="0c916ab3-e00f-44b1-b8ee-44b3a1a5e303" >
+            <flow-ref doc:name="try-teradata-db-request" doc:id="36652e0e-5790-428e-a0bb-a749c44e75d8" name="try-teradata-db-request"/>
+          </parallel-foreach>
+        </when>
+        <otherwise >
+          <logger level="INFO" doc:name="Logger" doc:id="19406a8d-e1bd-4209-a395-ff8c81d3bffc" message="Bulk insert finished successfully."/>
+        </otherwise>
+      </choice>
+    </parallel-foreach>
+    <logger level="INFO" doc:name="Logger" doc:id="9e4decd0-f948-4079-8662-dbabb0f84a3d" message="Committing message."/>
+    <kafka:commit doc:name="quickstart-events" doc:id="71696419-f724-4457-8d64-37e894ee6c10" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
+  </flow>
+  <flow name="teradata-db-insert" doc:id="b7473077-25fc-4f0f-83f0-8b5a35fa1dcb" >
+    <db:insert doc:name="Insert into staging table" doc:id="9948b171-19fa-4f46-bc4f-1a102798d154" config-ref="Teradata_Express_DataSource">
+      <db:sql><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
+   orderNo
+ , orderDate
+ , customerNo
+ , itemNo
+ , itemDesc
+ , orderState
+ , lastUpdatedTS
+ , mule_correlation_id
+ , row_number_by_payload
+)
+VALUES
+(
+   :orderNo
+ , :orderDate
+ , :customerNo
+ , :itemNo
+ , :itemDesc
+ , :orderState
+ , CAST(:lastUpdatedTS AS TIMESTAMP(3))
+ , :mule_correlation_id
+ , 1
+)
+;]]></db:sql>
+      <db:input-parameters><![CDATA[#[payload.value]]]></db:input-parameters>
+    </db:insert>
+    <error-handler ref="teradata-db-error-handler" />
+  </flow>
+  <flow name="teradata-db-bulk-insert" doc:id="3052391e-c11a-4c43-b9c7-fbfe42d7342d" >
+    <db:bulk-insert doc:name="Insert into staging table" doc:id="3c26eedf-3881-4181-be56-52fba2e2c82a" config-ref="Teradata_Express_DataSource">
+      <db:bulk-input-parameters ><![CDATA[#[payload.value]]]></db:bulk-input-parameters>
+      <db:sql><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
+   orderNo
+ , orderDate
+ , customerNo
+ , itemNo
+ , itemDesc
+ , orderState
+ , lastUpdatedTS
+ , mule_correlation_id
+ , row_number_by_payload
+)
+VALUES
+(
+   :orderNo
+ , :orderDate
+ , :customerNo
+ , :itemNo
+ , :itemDesc
+ , :orderState
+ , CAST(:lastUpdatedTS AS TIMESTAMP(3))
+ , :mule_correlation_id
+ , :row_number_by_payload
+)
+;]]></db:sql>
+    </db:bulk-insert>
+    <error-handler ref="teradata-db-error-handler" />
+  </flow>
+  <sub-flow name="teradata-db-error-insert" doc:id="a505ed8a-62b1-49a7-a7ed-ee2162b37120" >
+    <db:insert doc:name="Insert into log table" doc:id="997a97e5-8214-4ad9-976d-d4d260aa942a" config-ref="Teradata_Express_DataSource">
+            <db:sql><![CDATA[INSERT INTO MULE.LOG_FAILED_IMPORTS (
+   topicKey
+ , topicCreationTimestamp
+ , topicPartition
+ , topicOffset
+ , mule_correlation_id
+)
+VALUES
+(
+   :key
+ , :creationTimestamp
+ , :partition
+ , :offset
+ , :mule_correlation_id
+)
+;]]></db:sql>
+            <db:input-parameters><![CDATA[#[payload.attributes]]]></db:input-parameters>
+          </db:insert>
+  </sub-flow>
+</mule>

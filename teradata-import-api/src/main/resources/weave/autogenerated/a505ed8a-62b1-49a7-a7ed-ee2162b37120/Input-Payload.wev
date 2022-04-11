@@ -1,0 +1,23 @@
+%dw 2.0
+
+type auto_a505ed8a_62b1_49a7_a7ed_ee2162b37120_Input_Payload = {|
+  attributes: {|
+    key: String, 
+    creationTimestamp: DateTime {"typeId": "java.time.ZonedDateTime"} | Null, 
+    partition: Number | Null, 
+    offset: Number | Null, 
+    mule_correlation_id: String
+  |}, 
+  value: Null | {|
+    orderNo: Any, 
+    orderDate: Any, 
+    customerNo: Any, 
+    itemNo: Any, 
+    itemDesc: Any, 
+    orderState: Any, 
+    lastUpdatedTS: Any, 
+    mule_correlation_id: String, 
+    row_number_by_payload: Number
+  |}
+|}
+

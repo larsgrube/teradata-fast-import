@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:spring="http://www.mulesoft.org/schema/mule/spring" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:kafka="http://www.mulesoft.org/schema/mule/kafka"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/kafka http://www.mulesoft.org/schema/mule/kafka/current/mule-kafka.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/spring http://www.mulesoft.org/schema/mule/spring/current/mule-spring.xsd">
+  <http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config"
+    doc:id="ae614c5d-1fbb-4a12-9b83-ac8a0915c32f">
+    <http:listener-connection host="0.0.0.0" port="8081" />
+  </http:listener-config>
+  <configuration-properties doc:name="Configuration properties"
+    doc:id="cf8cedb9-3898-42b2-aae1-ffda6f3afc13" file="configuration.yaml" />
+  <spring:config name="Spring_Config" doc:name="Spring Config"
+    doc:id="7e480313-d513-4f29-8654-e3305a32f7a2" files="config/spring-config.xml" />
+  <db:config name="Teradata_Express_DataSource" doc:name="Database Config"
+    doc:id="778e5de5-dfb2-4a06-bbb6-18097c221e61">
+    <db:data-source-connection dataSourceRef="TeradataDataSource" />
+  </db:config>
+  <kafka:producer-config name="Apache_Kafka_Producer_configuration" doc:name="Apache Kafka Producer configuration" doc:id="75237380-61a1-4e78-8fbf-408296aa3d4d" topic="quickstart-events">
+    <kafka:producer-plaintext-connection endpointIdentificationAlgorithm="disabled" >
+      <kafka:bootstrap-servers >
+        <kafka:bootstrap-server value="${kafka.bootstrapServer}" />
+      </kafka:bootstrap-servers>
+    </kafka:producer-plaintext-connection>
+  </kafka:producer-config>
+  <kafka:consumer-config name="Apache_Kafka_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="c42a850f-75c8-4210-8f0a-f0df8799a438" ackMode="MANUAL">
+    <kafka:consumer-plaintext-connection groupId="teradata-consumer-group">
+      <reconnection >
+        <reconnect-forever />
+      </reconnection>
+      <kafka:bootstrap-servers >
+        <kafka:bootstrap-server value="${kafka.bootstrapServer}" />
+      </kafka:bootstrap-servers>
+      <kafka:topic-patterns >
+        <kafka:topic-pattern value="quickstart-events" />
+      </kafka:topic-patterns>
+    </kafka:consumer-plaintext-connection>
+  </kafka:consumer-config>
+  <kafka:consumer-config name="Apache_Kafka_Batch_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="bf6802fa-dc87-46ae-a50a-d4ded4124a16" ackMode="MANUAL">
+    <kafka:consumer-plaintext-connection maximumPollingInterval="10" maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="400" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="20" fetchMaximumWaitTimeoutUnit="SECONDS" sessionTimeout="30" recordLimit="10000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES" groupId="teradata-batch-consumer-group">
+      <reconnection >
+        <reconnect-forever />
+      </reconnection>
+      <kafka:bootstrap-servers >
+        <kafka:bootstrap-server value="${kafka.bootstrapServer}" />
+      </kafka:bootstrap-servers>
+      <kafka:topic-patterns >
+        <kafka:topic-pattern value="quickstart-events" />
+      </kafka:topic-patterns>
+    </kafka:consumer-plaintext-connection>
+  </kafka:consumer-config>
+</mule>

@@ -1,0 +1,12 @@
+%dw 2.0
+
+type auto_a505ed8a_62b1_49a7_a7ed_ee2162b37120_Output_Variables_rootMessage = {|
+  payload: Array<{|    attributes: {|      key: String,       creationTimestamp: DateTime {"typeId": "java.time.ZonedDateTime"} | Null,       partition: Number | Null,       offset: Number | Null,       mule_correlation_id: String    |},     value: Null | {|      orderNo: Any,       orderDate: Any,       customerNo: Any,       itemNo: Any,       itemDesc: Any,       orderState: Any,       lastUpdatedTS: Any,       mule_correlation_id: String,       row_number_by_payload: Number    |}  |}>, 
+  attributes: com_mulesoft_connectors_kafka_api_source_ConsumerContext
+|} {"typeId": "org.mule.runtime.api.message.Message"}
+type com_mulesoft_connectors_kafka_api_source_ConsumerContext = {| consumerCommitKey?: String |} {"typeAlias": "ConsumerContext",
+"class": "com.mulesoft.connectors.kafka.api.source.ConsumerContext",
+"typeId": "com.mulesoft.connectors.kafka.api.source.ConsumerContext"}
+
+
+
