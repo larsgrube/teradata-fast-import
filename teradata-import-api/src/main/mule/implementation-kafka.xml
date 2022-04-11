@@ -59,20 +59,6 @@ else flow.start()]]></scripting:code>
     <logger level="INFO" doc:name="Logger" doc:id="5932cc33-d9ab-403f-84eb-9a142e2c0ddd" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="8050f824-921a-4f5c-93e3-212119e95161" config-ref="Apache_Kafka_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
   </flow>
-  <sub-flow name="try-teradata-db-request" doc:id="3cd5c957-04b0-49a1-8a5a-5b684bfd579c">
-    <try doc:name="Try" doc:id="648a2d08-829a-4099-be2e-c38776fe5a8e">
-      <flow-ref doc:name="teradata-db-insert" doc:id="0a693391-7083-4494-8d4d-f9bb12760f18" name="teradata-db-insert" />
-      <error-handler>
-        <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5786dc63-7e2a-4caa-bd53-212365d69851" when="#[vars.errorStatusCode == 503]">
-          <logger level="INFO" doc:name="Logger" doc:id="a7935704-0798-4296-97ec-2d93d184474b" message="An irreproducible error occured, propagating error to parent flow." />
-        </on-error-propagate>
-        <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="94fdcc1d-6c1a-44af-b573-ad372ea70e5d">
-          <flow-ref doc:name="teradata-db-error-insert" doc:id="35ed045e-4a75-4231-98a8-08d6aad7ec08" name="teradata-db-error-insert" />
-
-        </on-error-continue>
-      </error-handler>
-    </try>
-  </sub-flow>
   <flow name="batch-consume-from-kafka-topic" doc:id="87a1314c-049c-4e4d-b410-da2b47b0f99e" initialState="stopped">
     <kafka:batch-message-listener doc:name="quickstart-events" doc:id="68885f30-0390-47ba-ac60-1f8538da0fdf" config-ref="Apache_Kafka_Batch_Consumer_configuration" parallelConsumersAmount="3"/>
     <logger level="INFO" doc:name="Logger" doc:id="1d4a6a0d-c806-4958-b874-6b138867704a" message="Starting batch consumer."/>
@@ -127,6 +113,20 @@ else flow.start()]]></scripting:code>
     <logger level="INFO" doc:name="Logger" doc:id="9e4decd0-f948-4079-8662-dbabb0f84a3d" message="Committing message."/>
     <kafka:commit doc:name="quickstart-events" doc:id="71696419-f724-4457-8d64-37e894ee6c10" config-ref="Apache_Kafka_Batch_Consumer_configuration" commitKey="#[vars.consumerCommitKey]"/>
   </flow>
+  <sub-flow name="try-teradata-db-request" doc:id="67ded686-a128-4077-bb5e-2c53a4b77e80">
+    <try doc:name="Try" doc:id="0c1fbdba-35ca-46c8-b7d1-351c69e382c2">
+      <flow-ref doc:name="teradata-db-insert" doc:id="d3d21eb8-8366-4c09-a073-04185ca42188" name="teradata-db-insert" />
+      <error-handler>
+        <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="998ab9b4-8d9f-4f43-80e3-5b0a6b703c9e" when="#[vars.errorStatusCode == 503]">
+          <logger level="INFO" doc:name="Logger" doc:id="466f2f9f-8b90-461b-ade2-861131350428" message="An irreproducible error occured, propagating error to parent flow." />
+        </on-error-propagate>
+        <on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="5023e692-080c-43c7-8df6-a0f04af31d1d">
+          <flow-ref doc:name="teradata-db-error-insert" doc:id="2690a74d-5d58-4ba8-9d2e-1f3ddd3946fd" name="teradata-db-error-insert" />
+
+        </on-error-continue>
+      </error-handler>
+    </try>
+  </sub-flow>
   <flow name="teradata-db-insert" doc:id="b7473077-25fc-4f0f-83f0-8b5a35fa1dcb" >
     <db:insert doc:name="Insert into staging table" doc:id="9948b171-19fa-4f46-bc4f-1a102798d154" config-ref="Teradata_Express_DataSource">
       <db:sql><![CDATA[INSERT INTO MULE.STG_FACT_ORDERS (
