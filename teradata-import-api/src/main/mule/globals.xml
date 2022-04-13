@@ -40,7 +40,7 @@ http://www.mulesoft.org/schema/mule/spring http://www.mulesoft.org/schema/mule/s
     </kafka:consumer-plaintext-connection>
   </kafka:consumer-config>
   <kafka:consumer-config name="Apache_Kafka_Batch_Consumer_configuration" doc:name="Apache Kafka Consumer configuration" doc:id="bf6802fa-dc87-46ae-a50a-d4ded4124a16" ackMode="MANUAL">
-    <kafka:consumer-plaintext-connection maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="400" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="5" fetchMaximumWaitTimeoutUnit="SECONDS" sessionTimeout="30" recordLimit="10000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES" groupId="teradata-batch-consumer-group" maximumPollingInterval="10">
+    <kafka:consumer-plaintext-connection maximumPollingIntervalTimeUnit="MINUTES" heartbeatInterval="10" fetchMinimumSize="500" fetchMinimumSizeUnit="KB" fetchMaximumWaitTimeout="5" fetchMaximumWaitTimeoutUnit="SECONDS" sessionTimeout="30" recordLimit="10000" requestTimeout="2" requestTimeoutTimeUnit="MINUTES" groupId="teradata-batch-consumer-group" maximumPollingInterval="10">
       <reconnection >
         <reconnect-forever />
       </reconnection>
